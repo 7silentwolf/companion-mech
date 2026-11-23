@@ -1,27 +1,52 @@
-# Robot firmware: trial 1 (v0.1)
+# Robot firmware: trial 1, two boards (v0.2)
 
-`mechakin_robot/` runs on **one regular ESP32 + PCA9685** and covers build-order steps 1-3:
-servos with limits and e-stop, movement files on storage (LittleFS), phone app over Wi-Fi/WebSocket.
-Later it splits into ESP32-S3 (Wi-Fi/display/audio) + ESP32 (servos) as in `kb/docs/architecture.md`.
+Matches **Stage B** in `kb/docs/wiring-pins.md` (and `wiring-pins.html`).
 
-> Not compiled yet. It was written without an ESP32 toolchain on hand. If the Arduino IDE shows an error, copy the error text and fix it from there.
+| Sketch | Board | Job |
+|---|---|---|
+| `mechakin_movement/` | regular ESP32 | PCA9685 servos, joint/speed limits, stop button (GPIO27), runs moves. No Wi-Fi |
+| `mechakin_comms/` | ESP32-S3 | Wi-Fi + app, file storage, modes, display eyes, sends moves to the movement board over UART |
 
-## Do step 1 first
-Get one servo moving with `kb/docs/step-1-servo-test.md`. This firmware uses **the same wiring**, plus:
-- Servos on PCA9685 channels **0 = head, 1 = right_shoulder, 2 = right_elbow** (change in the app's Setup tab).
-- **Stop button**: one leg to **GPIO27**, the other to **GND**. No resistor needed (internal pull-up).
+**Not used in this test:** speaker/amp, SD card. Leave them unplugged. Nothing in the code needs them.
 
-## Flash
-1. Arduino IDE → Boards Manager: **esp32 by Espressif**. Board: **ESP32 Dev Module**.
-2. Library Manager: **Adafruit PWM Servo Driver Library**, **WebSockets** (by Markus Sattler), **ArduinoJson** (v7).
-3. Copy `mechakin_robot/wifi_config.example.h` to `mechakin_robot/wifi_config.h` and put in your Wi-Fi (2.4 GHz, the same network as your phone). This file is git-ignored.
-   Skip this and the robot makes a hotspot **MechaKin-001** / `mechakin123` at `192.168.4.1` instead. But then your phone leaves your home Wi-Fi, and Expo Go can't reach the laptop.
-4. Open `mechakin_robot/mechakin_robot.ino`, upload, open the Serial Monitor at **115200**. It prints `Robot IP: ...`.
-5. In the app: Robot tab → IP + port **81** → Connect → **Sync everything to robot**.
+> Not compiled yet: there was no ESP32 toolchain where this was written. If the Arduino IDE shows an error, copy the full error text and fix it from there.
 
-## What it enforces itself (even if the app is wrong)
-Joint min/max (and 0-180), speed limit × mode %, E-STOP limp + latch, stop on connection loss / 3 s silence, upload path and size checks. See `kb/docs/app-robot-protocol.md`.
+## Libraries (Arduino Library Manager)
+- Movement: **Adafruit PWM Servo Driver Library**, **ArduinoJson** (7.x)
+- Comms: **WebSockets** (by Markus Sattler), **ArduinoJson** (7.x), **Adafruit ST7735 and ST7789 Library** (say yes to installing **Adafruit GFX** with it)
+- Boards Manager: **esp32 by Espressif**
+
+## Test order (one thing at a time)
+### 1. Movement board alone
+1. Board **ESP32 Dev Module**, open `mechakin_movement/mechakin_movement.ino`, upload.
+2. Serial Monitor at **115200**, line ending **Newline**. You should see `Ready`. The servos go to 90° (home).
+3. Type these and press Enter:
+   ```
+   {"type":"set_joint","joint":"head","angle":60}
+   {"type":"play","skill":{"skill_id":"t","steps":[{"joint":"right_shoulder","target_angle":130,"duration_ms":800},{"joint":"right_shoulder","target_angle":90,"duration_ms":800}]}}
+   {"type":"get_status"}
+   ```
+4. Press the stop button: servos go limp and `E-STOP (button)` prints. Let go, then type `{"type":"estop_release"}`.
+
+### 2. Comms board alone
+1. Copy `mechakin_comms/wifi_config.example.h` to `mechakin_comms/wifi_config.h` and put in your Wi-Fi (2.4 GHz, same network as the phone). This file is git-ignored.
+2. Board **ESP32S3 Dev Module**. If you use the board's USB port labelled "USB" (not "UART"), set **Tools → USB CDC On Boot → Enabled** or the Serial Monitor stays empty.
+3. Upload `mechakin_comms/mechakin_comms.ino`. The serial monitor prints `Robot IP: …`. The display shows eyes, the IP, and `no movement link` (normal until step 3).
+4. Display blank? Check the backlight pin: **LED/BL/BLK → 3V3**. Picture shifted, noisy edge, or wrong colours? Change `TFT_TAB` at the top to `INITR_GREENTAB` or `INITR_REDTAB`.
+
+### 3. Link the boards
+Wire the UART (power off): movement **GPIO17 (TX2) → S3 GPIO18**, movement **GPIO16 (RX2) ← S3 GPIO17**, **GND ↔ GND**. Power both by USB.
+The S3 prints `Movement board move-0.2.0 connected` / `Movement link OK`, and the display shows `friendly | idle`.
+
+### 4. App
+App → Robot tab → robot IP, port **81** → Connect → **Sync everything to robot**. Then try the Control sliders, Display test, a skill, and the STOP button. See `app/README.md`.
+
+## Safety (all on the movement board, works even if Wi-Fi or the S3 fails)
+- Joint min/max (and 0-180), speed ≤ joint max × mode % (60% until the S3 sends the mode).
+- Stop button or app STOP: servos limp, latched until released from the app (button must be let go first). A button held at power-on starts stopped.
+- Stops a move if the S3 goes quiet for 1.5 s. The S3 stops the move if the app disconnects or goes quiet for 3 s.
+- The movement board keeps its own copy of the joint limits, so it boots safe.
 
 ## Tuning
-- `SERVOMIN` / `SERVOMAX` at the top: pulse range. Same as the step-1 test; narrow if servos buzz at the ends.
-- After an E-STOP the servos go limp. Release from the app (Robot tab). The button must be let go first.
+- `SERVOMIN` / `SERVOMAX` (movement sketch): pulse range, same as step 1. Narrow it if servos buzz at the ends.
+- Pins are set at the top of each sketch and match `kb/docs/wiring-pins.md`. If your comms board is a regular ESP32 instead of an S3, the sketch switches to safe pins (display SCK 18, MOSI 23, CS 5, DC 2, RST 4; link RX 16, TX 17).

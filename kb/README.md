@@ -16,6 +16,7 @@ Idea stage. No company yet. All parts for trial 1 have been bought. Current step
 - `docs/step-1-servo-test.md` - wiring and code for the first servo test
 - `docs/mode-and-skill-format.md` - mode, skill, profile and training file formats
 - `docs/app-robot-protocol.md` - WebSocket messages between app and robot
+- `docs/wiring-pins.html` - pin-by-pin wiring for the ESP32, PCA9685, stop button, and the later S3 split (open in a browser)
 - `docs/architecture.md` - combined technical architecture
 - `docs/product-concept.md` - capsule, creatures, competitions, revenue
 - `docs/business-ip-safety.md` - IP, child safety, compliance, costs, risks

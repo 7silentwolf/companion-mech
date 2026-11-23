@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MechaKin wiring and pin numbers</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1f1f1d;--muted:#5f5e5a;--line:#d3d1c7;--card:#fff;--accent:#0f6e56;--warn-bg:#faeeda;--warn-fg:#633806}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1a;--fg:#eceae2;--muted:#b4b2a9;--line:#444441;--card:#262624;--accent:#5dcaa5;--warn-bg:#412402;--warn-fg:#fac775}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:820px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:20px;margin:40px 0 8px;padding-top:8px;border-top:1px solid var(--line)}
+p{margin:8px 0}
+.sub{color:var(--muted);margin-bottom:20px}
+.warn{background:var(--warn-bg);color:var(--warn-fg);padding:12px 16px;border-radius:8px;margin:16px 0}
+.tablewrap{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:420px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;font-size:14px;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+td code{background:transparent;border:0;padding:0;color:var(--accent);font-weight:600}
+ul,ol{padding-left:22px}
+li{margin:4px 0}
+
+
+.wide{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:8px;margin:12px 0}
+main>*{max-width:820px}
+main>.wide{max-width:none}
+main{max-width:1560px}
+svg#wiring{display:block}
+svg#wiring text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+svg#wiring .tx{fill:var(--fg);font-size:12px}
+svg#wiring .th{font-weight:600;font-size:13px}
+svg#wiring .ts{fill:var(--muted);font-size:11px}
+svg#wiring .w{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+svg#wiring .c3{color:#D85A30}svg#wiring .c5{color:#C0282B}svg#wiring .cg{color:#6b6a64}
+svg#wiring .ci{color:#378ADD}svg#wiring .cs{color:#1D9E75}svg#wiring .co{color:#7F77DD}
+svg#wiring .cu{color:#BA7517}svg#wiring .cb{color:#D4537E}svg#wiring .cv{color:#639922}
+svg#wiring .bx-p{fill:#EEEDFE;stroke:#534AB7}svg#wiring .bx-t{fill:#E1F5EE;stroke:#0F6E56}
+svg#wiring .bx-g{fill:#F1EFE8;stroke:#5F5E5A}svg#wiring .bx-a{fill:#FAEEDA;stroke:#854F0B}
+@media (prefers-color-scheme:dark){
+svg#wiring .bx-p{fill:#3C3489;stroke:#AFA9EC}svg#wiring .bx-t{fill:#085041;stroke:#5DCAA5}
+svg#wiring .bx-g{fill:#444441;stroke:#B4B2A9}svg#wiring .bx-a{fill:#633806;stroke:#EF9F27}
+svg#wiring .cg{color:#b4b2a9}svg#wiring .c5{color:#F09595}
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Wiring and pin numbers</h1>
+<p class="sub">MechaKin trial 1. Part of the knowledge base (<code>kb/docs</code>).</p>
+
+<div class="warn">Pin numbers are suggestions. Check them against your own boards' pinout diagrams before wiring, because the labels printed on the board are what matter. Power off while connecting. Never power servos from the ESP32 pins. Join all grounds.</div>
+
+<h2>Full wiring diagram</h2>
+<p>Every connection with pin numbers. Scroll sideways if your window is narrow.</p>
+<div class="wide"><svg id="wiring" role="img" width="1480" height="800" viewBox="0 0 1480 800" xmlns="http://www.w3.org/2000/svg"><title>MechaKin full wiring diagram</title><desc>All connections between the ESP32-S3, the movement ESP32, display, amplifier and speaker, SD card, PCA9685 servo driver, three servos, stop button and the 5V power supply, with pin numbers.</desc><text class="tx th" x="150" y="30">Comms side: ESP32-S3 and its parts</text><text class="tx th" x="730" y="30">Movement side: regular ESP32</text><text class="tx th" x="1010" y="52" >PCA9685 servo driver</text><text class="tx th" x="1280" y="52">Servo power and servos</text><rect class="bx-p" x="440" y="60" width="180" height="600" rx="8" stroke-width="1"/><text class="tx th" x="452" y="78">ESP32-S3 (comms)</text><text class="tx ts" x="452" y="93">Wi-Fi, display, audio, SD</text><rect class="bx-t" x="730" y="60" width="180" height="342" rx="8" stroke-width="1"/><text class="tx th" x="742" y="78">Movement ESP32</text><text class="tx ts" x="742" y="93">Servos, limits, e-stop</text><rect class="bx-g" x="150" y="74" width="180" height="210" rx="8" stroke-width="1"/><text class="tx th" x="162" y="92">Display 1.8 in SPI</text><rect class="bx-g" x="150" y="298" width="180" height="158" rx="8" stroke-width="1"/><text class="tx th" x="162" y="316">I2S amp MAX98357A</text><rect class="bx-g" x="150" y="470" width="180" height="184" rx="8" stroke-width="1"/><text class="tx th" x="162" y="488">microSD module</text><rect class="bx-g" x="20" y="312" width="90" height="74" rx="8" stroke-width="1"/><text class="tx th" x="30" y="330">Speaker</text><text class="tx ts" x="30" y="345">3W 4 ohm</text><rect class="bx-t" x="1010" y="74" width="170" height="210" rx="8" stroke-width="1"/><text class="tx th" x="1022" y="92">PCA9685</text><rect class="bx-a" x="1010" y="308" width="100" height="80" rx="8" stroke-width="1"/><text class="tx th" x="1022" y="326">Stop button</text><rect class="bx-a" x="1280" y="60" width="170" height="106" rx="8" stroke-width="1"/><text class="tx th" x="1292" y="78">5V power adapter</text><text class="tx ts" x="1292" y="93">3A, DC jack terminal</text><rect class="bx-t" x="1280" y="201" width="170" height="22" rx="5" stroke-width="1"/><text class="tx" x="1292" y="216">Servo 0 head</text><rect class="bx-t" x="1280" y="227" width="170" height="22" rx="5" stroke-width="1"/><text class="tx" x="1292" y="242">Servo 1 shoulder</text><rect class="bx-t" x="1280" y="253" width="170" height="22" rx="5" stroke-width="1"/><text class="tx" x="1292" y="268">Servo 2 elbow</text><g class="c3"><line class="w" x1="330" y1="112" x2="440" y2="112"/><circle cx="330" cy="112" r="3.5" fill="currentColor"/><circle cx="440" cy="112" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="116" text-anchor="end">VCC</text><text class="tx" x="452" y="116" text-anchor="start">3V3</text><g class="cg"><line class="w" x1="330" y1="138" x2="440" y2="138"/><circle cx="330" cy="138" r="3.5" fill="currentColor"/><circle cx="440" cy="138" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="142" text-anchor="end">GND</text><text class="tx" x="452" y="142" text-anchor="start">GND</text><g class="cs"><line class="w" x1="330" y1="164" x2="440" y2="164"/><circle cx="330" cy="164" r="3.5" fill="currentColor"/><circle cx="440" cy="164" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="168" text-anchor="end">SCK</text><text class="tx" x="452" y="168" text-anchor="start">GPIO12 · SCK</text><g class="cs"><line class="w" x1="330" y1="190" x2="440" y2="190"/><circle cx="330" cy="190" r="3.5" fill="currentColor"/><circle cx="440" cy="190" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="194" text-anchor="end">MOSI (SDA)</text><text class="tx" x="452" y="194" text-anchor="start">GPIO11 · MOSI</text><g class="cs"><line class="w" x1="330" y1="216" x2="440" y2="216"/><circle cx="330" cy="216" r="3.5" fill="currentColor"/><circle cx="440" cy="216" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="220" text-anchor="end">CS</text><text class="tx" x="452" y="220" text-anchor="start">GPIO10 · CS</text><g class="cs"><line class="w" x1="330" y1="242" x2="440" y2="242"/><circle cx="330" cy="242" r="3.5" fill="currentColor"/><circle cx="440" cy="242" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="246" text-anchor="end">DC</text><text class="tx" x="452" y="246" text-anchor="start">GPIO9 · DC</text><g class="cs"><line class="w" x1="330" y1="268" x2="440" y2="268"/><circle cx="330" cy="268" r="3.5" fill="currentColor"/><circle cx="440" cy="268" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="272" text-anchor="end">RST</text><text class="tx" x="452" y="272" text-anchor="start">GPIO8 · RST</text><g class="c5"><line class="w" x1="330" y1="336" x2="440" y2="336"/><circle cx="330" cy="336" r="3.5" fill="currentColor"/><circle cx="440" cy="336" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="340" text-anchor="end">VIN</text><text class="tx" x="452" y="340" text-anchor="start">5V</text><g class="cg"><line class="w" x1="330" y1="362" x2="440" y2="362"/><circle cx="330" cy="362" r="3.5" fill="currentColor"/><circle cx="440" cy="362" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="366" text-anchor="end">GND</text><text class="tx" x="452" y="366" text-anchor="start">GND</text><g class="co"><line class="w" x1="330" y1="388" x2="440" y2="388"/><circle cx="330" cy="388" r="3.5" fill="currentColor"/><circle cx="440" cy="388" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="392" text-anchor="end">BCLK</text><text class="tx" x="452" y="392" text-anchor="start">GPIO5 · BCLK</text><g class="co"><line class="w" x1="330" y1="414" x2="440" y2="414"/><circle cx="330" cy="414" r="3.5" fill="currentColor"/><circle cx="440" cy="414" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="418" text-anchor="end">LRC</text><text class="tx" x="452" y="418" text-anchor="start">GPIO6 · LRC</text><g class="co"><line class="w" x1="330" y1="440" x2="440" y2="440"/><circle cx="330" cy="440" r="3.5" fill="currentColor"/><circle cx="440" cy="440" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="444" text-anchor="end">DIN</text><text class="tx" x="452" y="444" text-anchor="start">GPIO7 · DIN</text><g class="c3"><line class="w" x1="330" y1="508" x2="440" y2="508"/><circle cx="330" cy="508" r="3.5" fill="currentColor"/><circle cx="440" cy="508" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="512" text-anchor="end">VCC</text><text class="tx" x="452" y="512" text-anchor="start">3V3</text><g class="cg"><line class="w" x1="330" y1="534" x2="440" y2="534"/><circle cx="330" cy="534" r="3.5" fill="currentColor"/><circle cx="440" cy="534" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="538" text-anchor="end">GND</text><text class="tx" x="452" y="538" text-anchor="start">GND</text><g class="cs"><line class="w" x1="330" y1="560" x2="440" y2="560"/><circle cx="330" cy="560" r="3.5" fill="currentColor"/><circle cx="440" cy="560" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="564" text-anchor="end">SCK</text><text class="tx" x="452" y="564" text-anchor="start">GPIO12 · SCK (shared)</text><g class="cs"><line class="w" x1="330" y1="586" x2="440" y2="586"/><circle cx="330" cy="586" r="3.5" fill="currentColor"/><circle cx="440" cy="586" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="590" text-anchor="end">MOSI</text><text class="tx" x="452" y="590" text-anchor="start">GPIO11 · MOSI (shared)</text><g class="cs"><line class="w" x1="330" y1="612" x2="440" y2="612"/><circle cx="330" cy="612" r="3.5" fill="currentColor"/><circle cx="440" cy="612" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="616" text-anchor="end">MISO</text><text class="tx" x="452" y="616" text-anchor="start">GPIO14 · MISO</text><g class="cs"><line class="w" x1="330" y1="638" x2="440" y2="638"/><circle cx="330" cy="638" r="3.5" fill="currentColor"/><circle cx="440" cy="638" r="3.5" fill="currentColor"/></g><text class="tx" x="318" y="642" text-anchor="end">CS</text><text class="tx" x="452" y="642" text-anchor="start">GPIO13 · CS</text><g class="cv"><line class="w" x1="110" y1="336" x2="150" y2="336"/><circle cx="110" cy="336" r="3.5" fill="currentColor"/><circle cx="150" cy="336" r="3.5" fill="currentColor"/></g><text class="tx" x="162" y="340" text-anchor="start">OUT+</text><text class="tx" x="98" y="340" text-anchor="end">+</text><g class="cv"><line class="w" x1="110" y1="362" x2="150" y2="362"/><circle cx="110" cy="362" r="3.5" fill="currentColor"/><circle cx="150" cy="362" r="3.5" fill="currentColor"/></g><text class="tx" x="162" y="366" text-anchor="start">OUT-</text><text class="tx" x="98" y="366" text-anchor="end">-</text><g class="cu"><line class="w" x1="620" y1="112" x2="730" y2="112"/><circle cx="620" cy="112" r="3.5" fill="currentColor"/><circle cx="730" cy="112" r="3.5" fill="currentColor"/></g><text class="tx" x="608" y="116" text-anchor="end">GPIO17 (TX)</text><text class="tx" x="742" y="116" text-anchor="start">RX2 (GPIO16)</text><g class="cu"><line class="w" x1="620" y1="138" x2="730" y2="138"/><circle cx="620" cy="138" r="3.5" fill="currentColor"/><circle cx="730" cy="138" r="3.5" fill="currentColor"/></g><text class="tx" x="608" y="142" text-anchor="end">GPIO16 (RX)</text><text class="tx" x="742" y="142" text-anchor="start">TX2 (GPIO17)</text><g class="cg"><line class="w" x1="620" y1="164" x2="730" y2="164"/><circle cx="620" cy="164" r="3.5" fill="currentColor"/><circle cx="730" cy="164" r="3.5" fill="currentColor"/></g><text class="tx" x="608" y="168" text-anchor="end">GND</text><text class="tx" x="742" y="168" text-anchor="start">GND</text><text class="tx ts" x="675" y="98" text-anchor="middle">UART</text><text class="tx ts" x="675" y="186" text-anchor="middle">TX goes to RX</text><g class="c3"><line class="w" x1="910" y1="112" x2="1010" y2="112"/><circle cx="910" cy="112" r="3.5" fill="currentColor"/><circle cx="1010" cy="112" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="116" text-anchor="end">3V3</text><text class="tx" x="1022" y="116" text-anchor="start">VCC</text><g class="cg"><line class="w" x1="910" y1="138" x2="1010" y2="138"/><circle cx="910" cy="138" r="3.5" fill="currentColor"/><circle cx="1010" cy="138" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="142" text-anchor="end">GND</text><text class="tx" x="1022" y="142" text-anchor="start">GND</text><g class="ci"><line class="w" x1="910" y1="164" x2="1010" y2="164"/><circle cx="910" cy="164" r="3.5" fill="currentColor"/><circle cx="1010" cy="164" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="168" text-anchor="end">GPIO21 (SDA)</text><text class="tx" x="1022" y="168" text-anchor="start">SDA</text><g class="ci"><line class="w" x1="910" y1="190" x2="1010" y2="190"/><circle cx="910" cy="190" r="3.5" fill="currentColor"/><circle cx="1010" cy="190" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="194" text-anchor="end">GPIO22 (SCL)</text><text class="tx" x="1022" y="194" text-anchor="start">SCL</text><g class="cb"><line class="w" x1="910" y1="216" x2="1010" y2="216" stroke-dasharray="6 4"/><circle cx="910" cy="216" r="3.5" fill="currentColor"/><circle cx="1010" cy="216" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="220" text-anchor="end">GPIO4 (optional)</text><text class="tx" x="1022" y="220" text-anchor="start">OE</text><g class="cb"><line class="w" x1="910" y1="346" x2="1010" y2="346"/><circle cx="910" cy="346" r="3.5" fill="currentColor"/><circle cx="1010" cy="346" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="350" text-anchor="end">GPIO27</text><text class="tx" x="1022" y="350" text-anchor="start">leg 1</text><g class="cg"><line class="w" x1="910" y1="372" x2="1010" y2="372"/><circle cx="910" cy="372" r="3.5" fill="currentColor"/><circle cx="1010" cy="372" r="3.5" fill="currentColor"/></g><text class="tx" x="898" y="376" text-anchor="end">GND</text><text class="tx" x="1022" y="376" text-anchor="start">leg 2</text><g class="c5"><line class="w" x1="1180" y1="112" x2="1280" y2="112"/><circle cx="1180" cy="112" r="3.5" fill="currentColor"/><circle cx="1280" cy="112" r="3.5" fill="currentColor"/></g><text class="tx" x="1168" y="116" text-anchor="end">V+ terminal</text><text class="tx" x="1292" y="116" text-anchor="start">+5V</text><g class="cg"><line class="w" x1="1180" y1="152" x2="1280" y2="152"/><circle cx="1180" cy="152" r="3.5" fill="currentColor"/><circle cx="1280" cy="152" r="3.5" fill="currentColor"/></g><text class="tx" x="1168" y="156" text-anchor="end">GND terminal</text><text class="tx" x="1292" y="156" text-anchor="start">GND</text><g class="cg"><line class="w" x1="1230" y1="112" x2="1230" y2="127" stroke-width="2"/><line class="w" x1="1218" y1="127" x2="1242" y2="127"/><line class="w" x1="1218" y1="137" x2="1242" y2="137"/><line class="w" x1="1230" y1="137" x2="1230" y2="152"/><circle cx="1230" cy="112" r="3.5" fill="currentColor"/><circle cx="1230" cy="152" r="3.5" fill="currentColor"/></g><text class="tx ts" x="1186" y="186">Capacitor 470-1000 uF across V+ and GND</text><g class="cv"><line class="w" x1="1180" y1="212" x2="1280" y2="212"/><circle cx="1180" cy="212" r="3.5" fill="currentColor"/><circle cx="1280" cy="212" r="3.5" fill="currentColor"/></g><text class="tx" x="1168" y="216" text-anchor="end">CH0</text><g class="cv"><line class="w" x1="1180" y1="238" x2="1280" y2="238"/><circle cx="1180" cy="238" r="3.5" fill="currentColor"/><circle cx="1280" cy="238" r="3.5" fill="currentColor"/></g><text class="tx" x="1168" y="242" text-anchor="end">CH1</text><g class="cv"><line class="w" x1="1180" y1="264" x2="1280" y2="264"/><circle cx="1180" cy="264" r="3.5" fill="currentColor"/><circle cx="1280" cy="264" r="3.5" fill="currentColor"/></g><text class="tx" x="1168" y="268" text-anchor="end">CH2</text><text class="tx ts" x="530" y="684" text-anchor="middle">Powered by its own USB cable</text><text class="tx ts" x="820" y="424" text-anchor="middle">Powered by its own USB cable</text><text class="tx ts" x="1010" y="304" >Pull-up is internal: no resistor needed</text><text class="tx ts" x="1280" y="300">Servo plug: brown = GND, red = V+,</text><text class="tx ts" x="1280" y="316">orange = signal. Match the labels.</text><g class="c3"><line class="w" x1="20" y1="730" x2="48" y2="730"/></g><text class="tx" x="56" y="734">3V3 power</text><g class="c5"><line class="w" x1="149" y1="730" x2="177" y2="730"/></g><text class="tx" x="185" y="734">5V power</text><g class="cg"><line class="w" x1="271" y1="730" x2="299" y2="730"/></g><text class="tx" x="307" y="734">Ground</text><g class="ci"><line class="w" x1="379" y1="730" x2="407" y2="730"/></g><text class="tx" x="415" y="734">I2C</text><g class="cs"><line class="w" x1="466" y1="730" x2="494" y2="730"/></g><text class="tx" x="502" y="734">SPI</text><g class="co"><line class="w" x1="553" y1="730" x2="581" y2="730"/></g><text class="tx" x="589" y="734">I2S audio</text><g class="cu"><line class="w" x1="682" y1="730" x2="710" y2="730"/></g><text class="tx" x="718" y="734">UART link</text><g class="cb"><line class="w" x1="811" y1="730" x2="839" y2="730"/></g><text class="tx" x="847" y="734">Stop / optional OE</text><g class="cv"><line class="w" x1="1003" y1="730" x2="1031" y2="730"/></g><text class="tx" x="1039" y="734">Servo / speaker</text><text class="tx ts" x="20" y="760">Join all grounds: ESP32 GND, PCA9685 GND, 5V adapter GND and the capacitor minus all connect together (breadboard rail).</text><text class="tx ts" x="20" y="778">Never power servos from an ESP32 pin. Servos run only from the 5V adapter on the PCA9685 V+ terminal.</text></svg></div>
+<h2>Stage A: trial 1 as the firmware is written now</h2>
+<p>One regular ESP32 plus PCA9685. These match <code>firmware/mechakin_robot/mechakin_robot.ino</code> (<code>PIN_SDA 21</code>, <code>PIN_SCL 22</code>, <code>PIN_ESTOP 27</code>).</p>
+<div class="tablewrap"><table>
+<thead><tr><th>From (ESP32)</th><th>To</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>3V3</code></td><td>PCA9685 VCC</td><td>Logic power</td></tr>
+<tr><td><code>GND</code></td><td>PCA9685 GND</td><td>Shared ground</td></tr>
+<tr><td><code>GPIO21</code></td><td>PCA9685 SDA</td><td>I2C data</td></tr>
+<tr><td><code>GPIO22</code></td><td>PCA9685 SCL</td><td>I2C clock</td></tr>
+<tr><td><code>GPIO27</code></td><td>Stop button, leg 1</td><td>Other leg to GND. No resistor needed (internal pull-up).</td></tr>
+<tr><td><code>GND</code></td><td>Stop button, leg 2</td><td></td></tr>
+</tbody></table></div>
+
+<p>Servo power (not from the ESP32):</p>
+<ul>
+<li>5V adapter + to the PCA9685 screw terminal <code>V+</code></li>
+<li>5V adapter - to the screw terminal <code>GND</code></li>
+<li>470-1000uF capacitor across V+ and GND (long leg +, stripe marks -)</li>
+<li>Servos on channels 0 (head), 1 (right shoulder), 2 (right elbow)</li>
+</ul>
+<p><strong>Optional, not used by the firmware yet:</strong> PCA9685 <code>OE</code> pin to <code>GPIO4</code>. Driving OE high disables all servo outputs, giving a hardware-level stop. Add it later if wanted.</p>
+
+<h2>Stage B: later split into two controllers</h2>
+<p>The movement ESP32 (regular ESP32 plus PCA9685) keeps the Stage A wiring and adds the UART link. If the movement board is a WROVER module, GPIO16 and GPIO17 are used for memory, so pick different UART pins.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Movement ESP32</th><th>ESP32-S3</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>RX2</code> (GPIO16)</td><td><code>GPIO17</code> (TX)</td><td>S3 TX goes to movement RX2</td></tr>
+<tr><td><code>TX2</code> (GPIO17)</td><td><code>GPIO16</code> (RX)</td><td>Movement TX2 goes to S3 RX</td></tr>
+<tr><td><code>GND</code></td><td><code>GND</code></td><td>Shared ground</td></tr>
+</tbody></table></div>
+<p>Both boards use 3.3V signals, so no level shifter is needed.</p>
+<div class="warn"><strong>Which pins are "RX" and "TX" on your boards?</strong><ul><li>Regular ESP32: the pins labelled <code>RX2</code> and <code>TX2</code> are <code>GPIO16</code> and <code>GPIO17</code>. Use those for the UART link.</li><li>Regular ESP32: <code>RX0</code> and <code>TX0</code> are <code>GPIO3</code> and <code>GPIO1</code>, the USB serial port used for uploading and the Serial Monitor. Do not use them for the link.</li><li>ESP32-S3: the pins labelled <code>RX</code> and <code>TX</code> are <code>GPIO44</code> and <code>GPIO43</code>, also the USB serial port. Do not use them. Use <code>GPIO16</code> (RX) and <code>GPIO17</code> (TX) instead.</li><li>On the S3, pick the pins in code: <code>Serial1.begin(115200, SERIAL_8N1, 16, 17)</code> (RX pin 16, TX pin 17).</li></ul></div>
+
+<h2>ESP32-S3 comms side (Stage B)</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Part</th><th>Part pin</th><th>S3 pin</th></tr></thead>
+<tbody>
+<tr><td>Display (1.8 in SPI)</td><td>VCC</td><td><code>3V3</code></td></tr>
+<tr><td>Display</td><td>GND</td><td><code>GND</code></td></tr>
+<tr><td>Display</td><td>SCK</td><td><code>GPIO12</code></td></tr>
+<tr><td>Display</td><td>MOSI (SDA)</td><td><code>GPIO11</code></td></tr>
+<tr><td>Display</td><td>CS</td><td><code>GPIO10</code></td></tr>
+<tr><td>Display</td><td>DC</td><td><code>GPIO9</code></td></tr>
+<tr><td>Display</td><td>RST</td><td><code>GPIO8</code></td></tr>
+<tr><td>I2S amp (MAX98357A)</td><td>VIN</td><td><code>5V</code></td></tr>
+<tr><td>I2S amp</td><td>GND</td><td><code>GND</code></td></tr>
+<tr><td>I2S amp</td><td>BCLK</td><td><code>GPIO5</code></td></tr>
+<tr><td>I2S amp</td><td>LRC</td><td><code>GPIO6</code></td></tr>
+<tr><td>I2S amp</td><td>DIN</td><td><code>GPIO7</code></td></tr>
+<tr><td>SD card</td><td>SCK</td><td><code>GPIO12</code> (shared with display)</td></tr>
+<tr><td>SD card</td><td>MOSI</td><td><code>GPIO11</code> (shared with display)</td></tr>
+<tr><td>SD card</td><td>MISO</td><td><code>GPIO14</code></td></tr>
+<tr><td>SD card</td><td>CS</td><td><code>GPIO13</code></td></tr>
+<tr><td>SD card</td><td>VCC, GND</td><td><code>3V3</code> (or 5V if the module needs it), <code>GND</code></td></tr>
+</tbody></table></div>
+<ul>
+<li>Display pin names differ between modules. "SDA" on many displays means MOSI, and some call CS "CE".</li>
+<li>The speaker (3W, 4 ohm) connects to the amp's output terminals. Keep speaker wires away from servo wires to reduce noise.</li>
+<li>Wire the SD card and display on the shared SPI lines one at a time, and test each before adding the next.</li>
+</ul>
+
+<h2>Assembly order</h2>
+<ol>
+<li>Movement ESP32 + PCA9685 + one servo (no horn), then servos 2 and 3.</li>
+<li>Stop button, then confirm it stops the servos.</li>
+<li>ESP32-S3 alone: Wi-Fi connects and prints its IP.</li>
+<li>UART link between the two boards (Stage B).</li>
+<li>Display, then speaker, then SD card, one at a time.</li>
+<li>Cardboard arm mock-up: head and shoulder/elbow, test a wave.</li>
+</ol>
+</main>
+</body>
+</html>

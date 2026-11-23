@@ -13,6 +13,7 @@ export type RobotRunState = 'idle' | 'playing' | 'estop';
 export interface RobotInfo {
   robot_id?: string;
   fw?: string;
+  movement_fw?: string;
   proto?: number;
 }
 
@@ -22,6 +23,9 @@ export interface RobotStatus {
   skill?: string;
   angles: Record<string, number>;
   estop_button?: boolean;
+  /** Two-board robot: false when the movement ESP32 stops answering the comms board. */
+  movement_ok?: boolean;
+  eyes?: string;
 }
 
 interface Pending {
@@ -107,8 +111,8 @@ export function RobotProvider({ children }: { children: ReactNode }) {
       }
       switch (msg.type) {
         case 'hello':
-          setInfo({ robot_id: msg.robot_id, fw: msg.fw, proto: msg.proto });
-          addLog(`robot ${msg.robot_id ?? '?'} fw ${msg.fw ?? '?'}`);
+          setInfo({ robot_id: msg.robot_id, fw: msg.fw, movement_fw: msg.movement_fw, proto: msg.proto });
+          addLog(`robot ${msg.robot_id ?? '?'} fw ${msg.fw ?? '?'}${msg.movement_fw ? ` + ${msg.movement_fw}` : ''}`);
           if (msg.proto !== PROTOCOL_VERSION) addLog(`warning: robot protocol ${msg.proto}, app ${PROTOCOL_VERSION}`);
           break;
         case 'status':
@@ -118,6 +122,8 @@ export function RobotProvider({ children }: { children: ReactNode }) {
             skill: msg.skill,
             angles: msg.angles ?? {},
             estop_button: msg.estop_button,
+            movement_ok: msg.movement_ok,
+            eyes: msg.eyes,
           });
           break;
         case 'ack': {

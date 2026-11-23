@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 import { Button, Card, Chip, Field, Muted, Row, Screen, colors, styles } from '../../components/ui';
+import { EYE_STYLES } from '../../lib/defaults';
 import { parseCommand } from '../../lib/engine';
 import { useRobot } from '../../lib/robot';
 import { paths, useStore } from '../../lib/store';
@@ -85,10 +86,20 @@ export default function RobotScreen() {
         )}
         {connected ? (
           <Muted>
-            {robot.info.robot_id ?? 'robot'} · fw {robot.info.fw ?? '?'} · state {robot.status?.state ?? '?'} · mode {robot.status?.mode ?? '?'}
+            {robot.info.robot_id ?? 'robot'} · fw {robot.info.fw ?? '?'}
+            {robot.info.movement_fw ? ` + ${robot.info.movement_fw}` : ''} · state {robot.status?.state ?? '?'} · mode {robot.status?.mode ?? '?'}
           </Muted>
         ) : null}
       </Card>
+
+      {connected && robot.status?.movement_ok === false ? (
+        <Card title="Movement board not answering">
+          <Text style={styles.error}>
+            The Wi-Fi board is fine, but the servo board isn't answering. Check: movement ESP32 powered (USB), TX2 (GPIO17) → S3 GPIO18, RX2 (GPIO16) ← S3
+            GPIO17, and GND between the boards.
+          </Text>
+        </Card>
+      ) : null}
 
       {estopped ? (
         <Card title="Emergency stop is active">
@@ -125,6 +136,17 @@ export default function RobotScreen() {
             ))}
         </Row>
       </Card>
+
+      {connected && robot.status?.eyes !== undefined ? (
+        <Card title="Display test">
+          <Muted>Shows these eyes on the robot's screen until you change mode.</Muted>
+          <Row style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+            {EYE_STYLES.map((e) => (
+              <Chip key={e} label={e} active={robot.status?.eyes === e} onPress={() => run('Eyes', () => robot.request({ type: 'set_eyes', eyes: e }))} />
+            ))}
+          </Row>
+        </Card>
+      ) : null}
 
       <Card title="Robot storage">
         <Muted>Send the digital twin, modes, skills and training record to the robot's flash.</Muted>

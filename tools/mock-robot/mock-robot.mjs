@@ -30,7 +30,10 @@ let joints = [
   { name: 'right_elbow', channel: 2, min_angle: 20, max_angle: 160, home_angle: 90, max_speed_dps: 200, enabled: true },
 ];
 let robotId = 'robot-001';
-let mode = { mode_id: 'friendly', limits: { max_speed_pct: 60 }, allowed_skills: null };
+let mode = { mode_id: 'friendly', limits: { max_speed_pct: 60 }, allowed_skills: null, eyes: 'happy' };
+let eyesOverride = '';
+// MOVEMENT_DOWN=1 npm start  -> pretend the movement ESP32 isn't answering
+const movementDown = process.env.MOVEMENT_DOWN === '1';
 
 const state = {
   run: 'idle', // idle | playing | estop
@@ -79,10 +82,11 @@ function loadFromStorage() {
 function loadMode(id) {
   try {
     const m = JSON.parse(readFileSync(join(STORAGE, `modes/${id}.json`), 'utf8'));
-    mode = { mode_id: id, limits: m.limits ?? { max_speed_pct: 60 }, allowed_skills: m.allowed_skills ?? null };
+    mode = { mode_id: id, limits: m.limits ?? { max_speed_pct: 60 }, allowed_skills: m.allowed_skills ?? null, eyes: m.display?.eyes ?? 'happy' };
+    eyesOverride = '';
     return true;
   } catch {
-    if (id === 'friendly') mode = { mode_id: 'friendly', limits: { max_speed_pct: 60 }, allowed_skills: null };
+    if (id === 'friendly') mode = { mode_id: 'friendly', limits: { max_speed_pct: 60 }, allowed_skills: null, eyes: 'happy' };
     return false;
   }
 }
@@ -195,16 +199,28 @@ const broadcast = (msg) => clients.forEach((c) => send(c, msg));
 function statusMsg() {
   const angles = {};
   for (const j of joints) angles[j.name] = Math.round(state.angle[j.name]);
-  return { type: 'status', state: state.run, mode: mode.mode_id, skill: state.skill, angles, estop_button: false };
+  return {
+    type: 'status',
+    state: state.run,
+    mode: mode.mode_id,
+    skill: state.skill,
+    angles,
+    estop_button: false,
+    movement_ok: !movementDown,
+    eyes: eyesOverride || mode.eyes,
+  };
 }
 const broadcastStatus = () => broadcast(statusMsg());
+
+const MOVEMENT_TYPES = new Set(['estop_release', 'stop', 'set_joint', 'play', 'play_saved']);
 
 function handle(ws, msg) {
   lastHeard = Date.now();
   const ack = (extra = {}) => msg.id !== undefined && send(ws, { type: 'ack', id: msg.id, ok: true, ...extra });
+  if (movementDown && MOVEMENT_TYPES.has(msg.type)) throw new Error('movement board not answering (check UART wires TX->RX, GND)');
   switch (msg.type) {
     case 'hello':
-      send(ws, { type: 'hello', robot_id: robotId, fw: FW, proto: PROTO, joints: joints.map((j) => j.name) });
+      send(ws, { type: 'hello', robot_id: robotId, fw: FW, movement_fw: 'mock-move-0.2', proto: PROTO, joints: joints.map((j) => j.name) });
       send(ws, statusMsg());
       return ack();
     case 'ping':
@@ -267,6 +283,11 @@ function handle(ws, msg) {
       return ack();
     case 'list_files':
       return ack({ files: listFiles() });
+    case 'set_eyes':
+      eyesOverride = String(msg.eyes ?? '');
+      console.log(`display eyes: ${eyesOverride}`);
+      broadcastStatus();
+      return ack();
     case 'set_mode':
       if (!loadMode(msg.mode_id)) throw new Error(`mode ${msg.mode_id} not on robot, upload it first`);
       console.log(`mode ${mode.mode_id}`);

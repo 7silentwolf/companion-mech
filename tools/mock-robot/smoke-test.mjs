@@ -90,6 +90,12 @@ ws.onopen = async () => {
     check('play blocked during estop', blocked.ok === false, blocked.error);
     check('estop_release', (await req({ type: 'estop_release' })).ok);
 
+    check('set_eyes', (await req({ type: 'set_eyes', eyes: 'sleepy' })).ok);
+    await req({ type: 'get_status' });
+    await sleep(100);
+    check('status shows eyes', lastStatus?.eyes === 'sleepy', `eyes=${lastStatus?.eyes}`);
+    check('status shows movement link', lastStatus?.movement_ok !== false, `movement_ok=${lastStatus?.movement_ok}`);
+
     const files = await req({ type: 'list_files' });
     check('list_files', files.files?.some((f) => f.path === '/skills/nod.json'), `${files.files?.length} files`);
   } catch (e) {

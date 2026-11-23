@@ -5,11 +5,11 @@ The phone is the robot's brain and microphone. This app connects to the robot ov
 
 | Tab | What it does |
 |---|---|
-| **Robot** | Connect, pick a mode, talk to the robot (type, or dictate with the keyboard mic), quick-play skills, sync files to the robot, log |
+| **Robot** | Connect, pick a mode, talk to the robot (type, or dictate with the keyboard mic), quick-play skills, display (eyes) test, movement-board warning, sync files to the robot, log |
 | **Control** | Live sliders per joint, Home, record poses into a new skill |
 | **Skills** | Skill library. Editor: steps, simultaneous moves, repeat, limit check, auto-fix, play, upload, JSON import/export |
 | **Train** | Practice a skill, rate it 1-5 stars. The skill is tuned within safe limits, level/XP/stats update and get saved to the robot |
-| **Setup** | Digital twin: joints, channels, min/home/max, speed, calibration test buttons. Mode speed limits and allowed skills. Robot ID |
+| **Setup** | Digital twin: joints, channels, min/home/max, speed, calibration test buttons. Mode speed limits, eyes and allowed skills. Robot ID |
 
 The red **STOP** button floats over every screen.
 
@@ -37,7 +37,8 @@ It prints the laptop's IP. In the app's Robot tab, enter that IP and port **8081
 `npm run smoke` runs an automatic protocol test against it.
 
 ## With the real robot
-Flash `../firmware/mechakin_robot` (see `../firmware/README.md`). The serial monitor prints the robot's IP. Enter it with port **81**. First time: tap **Sync everything to robot**.
+Flash both boards (see `../firmware/README.md`). The S3's serial monitor and display show the robot's IP. Enter it with port **81**. First time: tap **Sync everything to robot**.
+To see the movement-board warning against the mock, run `MOVEMENT_DOWN=1 npm start`.
 
 ## Checks
 ```
@@ -55,5 +56,5 @@ npm run typecheck
 ## Known limits (v0.1)
 - Voice uses the keyboard's dictation and simple keyword matching (wave/hello, nod/yes, dance, stop, "gaming mode"). Cloud AI action generation comes later.
 - Robot speed is constant within a move (no acceleration curves yet).
-- No display or sound control yet: that comes with the ESP32-S3 step.
+- Display shows eyes + status only. No sound yet (no speaker in the first test).
 - A standalone APK build (outside Expo Go) needs cleartext `ws://` allowed. Add `expo-build-properties` with `android.usesCleartextTraffic: true` when you get there.

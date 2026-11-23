@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Switch, Text, View } from 'react-native';
-import { Button, Card, Field, Muted, Row, Screen, colors, styles } from '../../components/ui';
+import { Button, Card, Chip, Field, Muted, Row, Screen, colors, styles } from '../../components/ui';
+import { EYE_STYLES } from '../../lib/defaults';
 import { useRobot } from '../../lib/robot';
 import { paths, useStore } from '../../lib/store';
 import type { Joint, Mode } from '../../lib/types';
@@ -108,12 +109,12 @@ export default function SetupScreen() {
                 keyboardType="number-pad"
                 onChangeText={(t) => setMode(m.mode_id, (x) => ({ ...x, limits: { ...x.limits, max_speed_pct: Math.max(1, Math.min(100, num(t, 50))) } }))}
               />
-              <Field
-                label="Eyes"
-                value={m.display?.eyes ?? ''}
-                autoCapitalize="none"
-                onChangeText={(t) => setMode(m.mode_id, (x) => ({ ...x, display: { ...x.display, eyes: t } }))}
-              />
+            </Row>
+            <Text style={styles.label}>Eyes on the display</Text>
+            <Row style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+              {EYE_STYLES.map((e) => (
+                <Chip key={e} label={e} active={(m.display?.eyes ?? 'happy') === e} onPress={() => setMode(m.mode_id, (x) => ({ ...x, display: { ...x.display, eyes: e } }))} />
+              ))}
             </Row>
             <Field
               label="Allowed skills (comma separated)"

@@ -89,3 +89,6 @@ export const DEFAULT_TRAINING: TrainingRecord = {
   skills: {},
   stats: { speed: 1, agility: 1, intelligence: 1 },
 };
+
+/** Eye styles the comms board can draw on the display. */
+export const EYE_STYLES = ['happy', 'normal', 'focused', 'sad', 'sleepy'] as const;
