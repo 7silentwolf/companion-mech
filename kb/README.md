@@ -14,7 +14,8 @@ Idea stage. No company yet. All parts for trial 1 have been bought. Current step
 ## Contents
 - `docs/trial-1-plan.md` - what trial 1 includes and build order
 - `docs/step-1-servo-test.md` - wiring and code for the first servo test
-- `docs/mode-and-skill-format.md` - mode, skill and training file formats
+- `docs/mode-and-skill-format.md` - mode, skill, profile and training file formats
+- `docs/app-robot-protocol.md` - WebSocket messages between app and robot
 - `docs/architecture.md` - combined technical architecture
 - `docs/product-concept.md` - capsule, creatures, competitions, revenue
 - `docs/business-ip-safety.md` - IP, child safety, compliance, costs, risks

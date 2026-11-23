@@ -1,0 +1,14 @@
+{
+  "name": "mechakin-mock-robot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fake robot that speaks the MechaKin app protocol, for testing the app without hardware",
+  "scripts": {
+    "start": "node mock-robot.mjs",
+    "smoke": "node smoke-test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
