@@ -96,6 +96,12 @@ ws.onopen = async () => {
     check('status shows eyes', lastStatus?.eyes === 'sleepy', `eyes=${lastStatus?.eyes}`);
     check('status shows movement link', lastStatus?.movement_ok !== false, `movement_ok=${lastStatus?.movement_ok}`);
 
+    const shortPw = await req({ type: 'set_wifi', ssid: 'Home', pass: '123' });
+    check('set_wifi rejects short password', shortPw.ok === false, shortPw.error);
+    check('set_wifi', (await req({ type: 'set_wifi', ssid: 'NewHome', pass: 'longenough' })).ok);
+    const w = await req({ type: 'get_wifi' });
+    check('get_wifi', w.ssid === 'NewHome', `ssid=${w.ssid}`);
+
     const files = await req({ type: 'list_files' });
     check('list_files', files.files?.some((f) => f.path === '/skills/nod.json'), `${files.files?.length} files`);
   } catch (e) {

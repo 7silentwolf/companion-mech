@@ -14,6 +14,7 @@ export interface RobotInfo {
   robot_id?: string;
   fw?: string;
   movement_fw?: string;
+  wifi?: string; // Wi-Fi network the robot is on ('' = in setup hotspot)
   proto?: number;
 }
 
@@ -111,7 +112,7 @@ export function RobotProvider({ children }: { children: ReactNode }) {
       }
       switch (msg.type) {
         case 'hello':
-          setInfo({ robot_id: msg.robot_id, fw: msg.fw, movement_fw: msg.movement_fw, proto: msg.proto });
+          setInfo({ robot_id: msg.robot_id, fw: msg.fw, movement_fw: msg.movement_fw, wifi: msg.wifi, proto: msg.proto });
           addLog(`robot ${msg.robot_id ?? '?'} fw ${msg.fw ?? '?'}${msg.movement_fw ? ` + ${msg.movement_fw}` : ''}`);
           if (msg.proto !== PROTOCOL_VERSION) addLog(`warning: robot protocol ${msg.proto}, app ${PROTOCOL_VERSION}`);
           break;

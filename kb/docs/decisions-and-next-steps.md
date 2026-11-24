@@ -37,3 +37,4 @@ Digital twin + validation -> JSON movement engine -> Android app -> AI action ge
 - 2026-11-23: Mobile app v0.1 (connect, E-STOP, joint control, pose recording, skill editor with validation, modes, training), protocol v1, trial-1 firmware v0.1 and mock robot added.
 - 2026-11-23: Added `wiring-pins.html` (pin numbers for trial 1 and the later two-controller split). Decision: files Claude makes in chat are saved into this folder so VS Code sees the same docs.
 - 2026-11-23: Firmware v0.2 split into `mechakin_movement` (ESP32) + `mechakin_comms` (S3 with display eyes), per the wiring diagram. App: movement-link warning, display test, eye styles. Speaker and SD skipped for the first test.
+- 2026-11-24: Robot Wi-Fi is saved in the S3's flash, not compiled in. It's set from the setup hotspot page (MechaKin-001), from the app's Setup tab, or reset with BOOT held 3 s. `wifi_config.h` is now optional.

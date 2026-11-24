@@ -32,6 +32,7 @@ let joints = [
 let robotId = 'robot-001';
 let mode = { mode_id: 'friendly', limits: { max_speed_pct: 60 }, allowed_skills: null, eyes: 'happy' };
 let eyesOverride = '';
+let wifi = { ssid: 'HomeWiFi', pass: '' };
 // MOVEMENT_DOWN=1 npm start  -> pretend the movement ESP32 isn't answering
 const movementDown = process.env.MOVEMENT_DOWN === '1';
 
@@ -220,7 +221,7 @@ function handle(ws, msg) {
   if (movementDown && MOVEMENT_TYPES.has(msg.type)) throw new Error('movement board not answering (check UART wires TX->RX, GND)');
   switch (msg.type) {
     case 'hello':
-      send(ws, { type: 'hello', robot_id: robotId, fw: FW, movement_fw: 'mock-move-0.2', proto: PROTO, joints: joints.map((j) => j.name) });
+      send(ws, { type: 'hello', robot_id: robotId, fw: FW, movement_fw: 'mock-move-0.2', wifi: wifi.ssid, proto: PROTO, joints: joints.map((j) => j.name) });
       send(ws, statusMsg());
       return ack();
     case 'ping':
@@ -283,6 +284,17 @@ function handle(ws, msg) {
       return ack();
     case 'list_files':
       return ack({ files: listFiles() });
+    case 'get_wifi':
+      return ack({ ssid: wifi.ssid, connected: true, setup_mode: false, ip: '127.0.0.1' });
+    case 'set_wifi': {
+      const ssid = String(msg.ssid ?? '');
+      const pass = String(msg.pass ?? '');
+      if (!ssid || ssid.length > 32) throw new Error('Wi-Fi name must be 1-32 characters');
+      if (pass.length > 63 || (pass.length > 0 && pass.length < 8)) throw new Error('password must be 8-63 characters (or empty for an open network)');
+      wifi = { ssid, pass };
+      console.log(`Wi-Fi saved: "${ssid}" (a real robot would restart now)`);
+      return ack();
+    }
     case 'set_eyes':
       eyesOverride = String(msg.eyes ?? '');
       console.log(`display eyes: ${eyesOverride}`);

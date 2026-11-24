@@ -29,10 +29,12 @@ Matches **Stage B** in `kb/docs/wiring-pins.md` (and `wiring-pins.html`).
 4. Press the stop button: servos go limp and `E-STOP (button)` prints. Let go, then type `{"type":"estop_release"}`.
 
 ### 2. Comms board alone
-1. Copy `mechakin_comms/wifi_config.example.h` to `mechakin_comms/wifi_config.h` and put in your Wi-Fi (2.4 GHz, same network as the phone). This file is git-ignored.
-2. Board **ESP32S3 Dev Module**. If you use the board's USB port labelled "USB" (not "UART"), set **Tools → USB CDC On Boot → Enabled** or the Serial Monitor stays empty.
-3. Upload `mechakin_comms/mechakin_comms.ino`. The serial monitor prints `Robot IP: …`. The display shows eyes, the IP, and `no movement link` (normal until step 3).
-4. Display blank? Check the backlight pin: **LED/BL/BLK → 3V3**. Picture shifted, noisy edge, or wrong colours? Change `TFT_TAB` at the top to `INITR_GREENTAB` or `INITR_REDTAB`.
+1. Board **ESP32S3 Dev Module**. If you use the board's USB port labelled "USB" (not "UART"), set **Tools → USB CDC On Boot → Enabled** or the Serial Monitor stays empty.
+2. Upload `mechakin_comms/mechakin_comms.ino`. The first time, there is no Wi-Fi saved, so the display says **Join Wi-Fi MechaKin-001**:
+   - On your phone, join Wi-Fi **MechaKin-001**, password **mechakin123**. A setup page opens (if not, open `http://192.168.4.1` in the browser).
+   - Tap your home Wi-Fi (2.4 GHz), type its password, then **Save and restart**.
+   - Put the phone back on your home Wi-Fi. The display now shows the robot's IP, eyes, and `no movement link` (normal until step 3).
+3. Display blank? Check the backlight pin: **LED/BL/BLK → 3V3**. Picture shifted, noisy edge, or wrong colours? Change `TFT_TAB` at the top to `INITR_GREENTAB` or `INITR_REDTAB`.
 
 ### 3. Link the boards
 Wire the UART (power off): movement **GPIO17 (TX2) → S3 GPIO18**, movement **GPIO16 (RX2) ← S3 GPIO17**, **GND ↔ GND**. Power both by USB.
@@ -46,6 +48,14 @@ App → Robot tab → robot IP, port **81** → Connect → **Sync everything to
 - Stop button or app STOP: servos limp, latched until released from the app (button must be let go first). A button held at power-on starts stopped.
 - Stops a move if the S3 goes quiet for 1.5 s. The S3 stops the move if the app disconnects or goes quiet for 3 s.
 - The movement board keeps its own copy of the joint limits, so it boots safe.
+
+## Changing Wi-Fi (no re-upload needed)
+The S3 remembers the Wi-Fi in its own flash. To move it to another network:
+- **From the app:** Setup tab → Robot Wi-Fi → name + password → Send. The robot restarts on the new network; read the new IP on its display.
+- **Without the app:** if the robot can't join its saved Wi-Fi at power-on (new place, changed password), it opens the **MechaKin-001** hotspot and setup page by itself. Join it and pick the new network.
+- **Forget it:** hold the S3's **BOOT** button for 3 seconds. It forgets the Wi-Fi and opens the setup hotspot.
+- While in setup mode it retries the saved Wi-Fi every 30 s (when nobody is on the hotspot), so a router that was slow to start is fine.
+- `wifi_config.h` is optional. If present, it's only the starting default before anything is saved.
 
 ## Tuning
 - `SERVOMIN` / `SERVOMAX` (movement sketch): pulse range, same as step 1. Narrow it if servos buzz at the ends.

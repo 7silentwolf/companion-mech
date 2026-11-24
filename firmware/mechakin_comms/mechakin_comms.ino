@@ -8,9 +8,17 @@
 // Board: "ESP32S3 Dev Module". If you use the board's native USB port for the
 // serial monitor, set Tools > USB CDC On Boot > Enabled.
 //
-// Wi-Fi: copy wifi_config.example.h to wifi_config.h (git-ignored) and fill it in.
+// Wi-Fi: no need to re-upload for a new network. The robot remembers the Wi-Fi in flash.
+//   - No saved network / can't join: it opens hotspot "MechaKin-001" (pw mechakin123).
+//     Join it with your phone; a setup page opens (or browse to 192.168.4.1).
+//   - From the app: Setup tab > Robot Wi-Fi.
+//   - Hold the S3's BOOT button for 3 s to forget the saved Wi-Fi.
+// wifi_config.h (optional, git-ignored) only sets a starting default.
 
 #include <WiFi.h>
+#include <Preferences.h>
+#include <WebServer.h>
+#include <DNSServer.h>
 #include <ESPmDNS.h>
 #include <LittleFS.h>
 #include <SPI.h>
@@ -28,11 +36,15 @@
 #endif
 
 // ---------------- Settings ----------------
-#define FW_VERSION "comms-0.2.0"
+#define FW_VERSION "comms-0.3.0"
 #define PROTO_VERSION 1
 #define AP_SSID "MechaKin-001"
 #define AP_PASS "mechakin123"
 #define WS_PORT 81
+#define PIN_WIFI_RESET 0         // the board's BOOT button
+#define WIFI_RESET_HOLD_MS 3000
+#define WIFI_JOIN_TIMEOUT_MS 15000
+#define SETUP_RETRY_MS 30000     // in setup mode, retry the saved network this often (if nobody is on the hotspot)
 
 #if CONFIG_IDF_TARGET_ESP32S3
 // Pins from kb/docs/wiring-pins.md (ESP32-S3)
@@ -313,6 +325,201 @@ void checkPendingTimeouts() {
   }
 }
 
+
+// ---------------- Wi-Fi (saved in flash, changeable without re-uploading) ----------------
+Preferences prefs;
+WebServer portal(80);
+DNSServer dns;
+bool setupMode = false;  // hotspot + setup page are running
+uint32_t restartAt = 0;  // when > 0: restart at this millis()
+uint32_t bootDownSince = 0;
+uint32_t lastSetupRetry = 0;
+char wifiSsid[33] = "";
+char wifiPass[65] = "";
+
+void loadWifiCreds() {
+  prefs.begin("wifi", false);
+  String ssid = prefs.getString("ssid", "");
+  String pass = prefs.getString("pass", "");
+  prefs.end();
+  if (ssid.length() == 0) {  // nothing saved yet: use wifi_config.h if present
+    ssid = WIFI_SSID;
+    pass = WIFI_PASS;
+  }
+  strlcpy(wifiSsid, ssid.c_str(), sizeof(wifiSsid));
+  strlcpy(wifiPass, pass.c_str(), sizeof(wifiPass));
+}
+
+// Returns nullptr on success, or what is wrong.
+const char *saveWifiCreds(const char *ssid, const char *pass) {
+  if (!ssid || !ssid[0] || strlen(ssid) > 32) return "Wi-Fi name must be 1-32 characters";
+  if (!pass) pass = "";
+  size_t pl = strlen(pass);
+  if (pl > 63 || (pl > 0 && pl < 8)) return "password must be 8-63 characters (or empty for an open network)";
+  prefs.begin("wifi", false);
+  prefs.putString("ssid", ssid);
+  prefs.putString("pass", pass);
+  prefs.end();
+  strlcpy(wifiSsid, ssid, sizeof(wifiSsid));
+  strlcpy(wifiPass, pass, sizeof(wifiPass));
+  Serial.printf("Saved Wi-Fi \"%s\"\n", ssid);
+  return nullptr;
+}
+
+void clearWifiCreds() {
+  prefs.begin("wifi", false);
+  prefs.clear();
+  prefs.end();
+  Serial.println("Forgot saved Wi-Fi");
+}
+
+void scheduleRestart(uint32_t inMs) {
+  sendLinkType("stop");  // never restart in the middle of a move
+  restartAt = millis() + inMs;
+}
+
+String htmlEscape(const String &in) {
+  String out;
+  for (size_t i = 0; i < in.length(); i++) {
+    char c = in[i];
+    if (c == '<') out += "&lt;";
+    else if (c == '>') out += "&gt;";
+    else if (c == '&') out += "&amp;";
+    else if (c == '"') out += "&quot;";
+    else if (c == '\'') out += "&#39;";
+    else out += c;
+  }
+  return out;
+}
+
+const char *PAGE_HEAD =
+    "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>MechaKin Wi-Fi</title><style>body{font-family:sans-serif;max-width:420px;margin:20px auto;padding:0 16px;color:#1b2233}"
+    "h1{font-size:22px}button,input{font-size:17px;padding:10px;width:100%;box-sizing:border-box;margin:4px 0;border-radius:8px;"
+    "border:1px solid #ccd}.net{background:#eef2fb;text-align:left}.go{background:#3b5bdb;color:#fff;border:0;font-weight:bold}"
+    "small{color:#667}</style></head><body><h1>MechaKin Wi-Fi setup</h1>";
+
+void portalRoot() {
+  String page = PAGE_HEAD;
+  page += "<p>Pick your Wi-Fi (2.4 GHz) and type its password. The robot saves it and restarts.</p>";
+  int n = WiFi.scanNetworks();
+  for (int i = 0; i < n; i++) {
+    String name = WiFi.SSID(i);
+    if (name.length() == 0) continue;
+    bool dup = false;
+    for (int k = 0; k < i; k++)
+      if (WiFi.SSID(k) == name) dup = true;
+    if (dup) continue;
+    String esc = htmlEscape(name);
+    page += "<button type='button' class='net' data-n=\"" + esc + "\" onclick=\"document.getElementById('s').value=this.dataset.n;"
+            "document.getElementById('p').focus()\">" + esc + " <small>(" + String(WiFi.RSSI(i)) + " dBm)</small></button>";
+  }
+  WiFi.scanDelete();
+  if (n <= 0) page += "<p><small>No networks found. Type the name below.</small></p>";
+  page += "<form method='POST' action='/save'><input id='s' name='ssid' placeholder='Wi-Fi name' maxlength='32' required>"
+          "<input id='p' name='pass' type='password' placeholder='Password' maxlength='63'>"
+          "<button class='go' type='submit'>Save and restart</button></form>"
+          "<p><a href='/'>Scan again</a></p></body></html>";
+  portal.send(200, "text/html", page);
+}
+
+void portalSave() {
+  String ssid = portal.arg("ssid");
+  String pass = portal.arg("pass");
+  const char *err = saveWifiCreds(ssid.c_str(), pass.c_str());
+  String page = PAGE_HEAD;
+  if (err) {
+    page += "<p style='color:#c00'>" + htmlEscape(err) + "</p><p><a href='/'>Back</a></p></body></html>";
+    portal.send(400, "text/html", page);
+    return;
+  }
+  page += "<p>Saved <b>" + htmlEscape(ssid) + "</b>. The robot is restarting and joining it.</p>"
+          "<p>Now connect your phone back to that Wi-Fi. The robot's new IP appears on its display; type it in the app.</p>"
+          "<p><small>If the robot can't join (wrong password?), this hotspot comes back in about 15 seconds.</small></p></body></html>";
+  portal.send(200, "text/html", page);
+  scheduleRestart(2000);
+}
+
+void portalRedirect() {  // captive portal: send every unknown URL to the setup page
+  portal.sendHeader("Location", "http://192.168.4.1/", true);
+  portal.send(302, "text/plain", "");
+}
+
+void startSetupMode() {
+  setupMode = true;
+  WiFi.mode(WIFI_AP_STA);  // AP for the setup page, STA so we can scan and retry
+  WiFi.softAP(AP_SSID, AP_PASS);
+  dns.start(53, "*", WiFi.softAPIP());
+  portal.on("/", HTTP_GET, portalRoot);
+  portal.on("/save", HTTP_POST, portalSave);
+  portal.onNotFound(portalRedirect);
+  portal.begin();
+  lastSetupRetry = millis();
+  ipText = "Wi-Fi setup";
+  Serial.printf("Wi-Fi setup mode: join hotspot %s (password %s), open http://192.168.4.1\n", AP_SSID, AP_PASS);
+  Serial.printf("The app also works on the hotspot: IP 192.168.4.1 port %d\n", WS_PORT);
+}
+
+bool joinWifi(uint32_t timeoutMs) {
+  if (!wifiSsid[0]) return false;
+  WiFi.begin(wifiSsid, wifiPass);
+  Serial.printf("Joining Wi-Fi \"%s\"", wifiSsid);
+  uint32_t t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < timeoutMs) {
+    delay(300);
+    Serial.print('.');
+  }
+  Serial.println();
+  return WiFi.status() == WL_CONNECTED;
+}
+
+void startWifi() {
+  loadWifiCreds();
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);  // ride out short router outages
+  if (joinWifi(WIFI_JOIN_TIMEOUT_MS)) {
+    ipText = WiFi.localIP().toString();
+    Serial.printf("Connected. Robot IP: %s  port %d\n", ipText.c_str(), WS_PORT);
+    return;
+  }
+  Serial.println(wifiSsid[0] ? "Could not join the saved Wi-Fi" : "No Wi-Fi saved yet");
+  startSetupMode();
+}
+
+void wifiLoop() {
+  uint32_t now = millis();
+  if (setupMode) {
+    dns.processNextRequest();
+    portal.handleClient();
+    // The router may just have been slow to start: retry the saved network now and then,
+    // but only while nobody is using the hotspot (retrying disturbs the hotspot briefly).
+    if (wifiSsid[0] && !restartAt && WiFi.softAPgetStationNum() == 0 && now - lastSetupRetry > SETUP_RETRY_MS) {
+      lastSetupRetry = now;
+      Serial.println("Retrying saved Wi-Fi");
+      if (joinWifi(8000)) scheduleRestart(500);  // restart cleanly into normal mode
+      lastSetupRetry = millis();
+    }
+  }
+  // Hold BOOT for 3 s: forget the saved Wi-Fi and restart into setup mode.
+  if (digitalRead(PIN_WIFI_RESET) == LOW) {
+    if (!bootDownSince) bootDownSince = now ? now : 1;
+    else if (now - bootDownSince > WIFI_RESET_HOLD_MS && !restartAt) {
+      clearWifiCreds();
+      wifiSsid[0] = 0;
+      ipText = "Wi-Fi forgotten";
+      displayDirty = true;
+      scheduleRestart(1000);
+    }
+  } else {
+    bootDownSince = 0;
+  }
+  if (restartAt && (int32_t)(now - restartAt) >= 0) {
+    Serial.println("Restarting");
+    Serial.flush();
+    ESP.restart();
+  }
+}
+
 // ---------------- Display ----------------
 #if USE_DISPLAY
 uint16_t eyeColor() { return strcmp(modeId, "gaming") == 0 ? ST77XX_ORANGE : ST77XX_CYAN; }
@@ -356,6 +563,20 @@ void drawStatusBar() {
   }
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(2, 106);
+  if (setupMode) {
+    tft.setTextColor(ST77XX_YELLOW);
+    tft.print("Join Wi-Fi " AP_SSID);
+    tft.setCursor(2, 117);
+    tft.print("pw:" AP_PASS " 192.168.4.1");
+    return;
+  }
+  if (restartAt) {
+    tft.setTextColor(ST77XX_YELLOW);
+    tft.print(ipText);
+    tft.setCursor(2, 117);
+    tft.print("restarting...");
+    return;
+  }
   tft.print(ipText);
   tft.setCursor(2, 117);
   if (!movementOk()) {
@@ -541,6 +762,7 @@ void handleAppMessage(uint8_t num, uint8_t *payload, size_t length) {
     h["fw"] = FW_VERSION;
     h["movement_fw"] = mvFw;
     h["proto"] = PROTO_VERSION;
+    h["wifi"] = setupMode ? "" : wifiSsid;
     h["joints"] = mvJoints.as<JsonArrayConst>();
     sendJson(num, h);
     sendStatus(num);
@@ -596,6 +818,26 @@ void handleAppMessage(uint8_t num, uint8_t *payload, size_t length) {
       Serial.printf("mode %s\n", modeId);
       broadcastStatus();
     }
+  } else if (strcmp(type, "get_wifi") == 0) {
+    if (hasId) {
+      JsonDocument ack;
+      ack["type"] = "ack";
+      ack["id"] = appId;
+      ack["ok"] = true;
+      ack["ssid"] = wifiSsid;
+      ack["connected"] = WiFi.status() == WL_CONNECTED;
+      ack["setup_mode"] = setupMode;
+      ack["ip"] = setupMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
+      sendJson(num, ack);
+    }
+    return;
+  } else if (strcmp(type, "set_wifi") == 0) {
+    error = saveWifiCreds(msg["ssid"] | "", msg["pass"] | "");
+    if (!error) {
+      ipText = String("joining ") + wifiSsid;
+      displayDirty = true;
+      scheduleRestart(1500);  // after the ack has gone out
+    }
   } else if (strcmp(type, "set_eyes") == 0) {
     strlcpy(eyesOverride, msg["eyes"] | "", sizeof(eyesOverride));
     displayDirty = true;
@@ -637,36 +879,13 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
 }
 
 // ---------------- Setup / loop ----------------
-void startWifi() {
-  if (strlen(WIFI_SSID) > 0) {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-    Serial.printf("Joining Wi-Fi %s", WIFI_SSID);
-    uint32_t t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
-      delay(300);
-      Serial.print('.');
-    }
-    Serial.println();
-    if (WiFi.status() == WL_CONNECTED) {
-      ipText = WiFi.localIP().toString();
-      Serial.printf("Connected. Robot IP: %s  port %d\n", ipText.c_str(), WS_PORT);
-      return;
-    }
-    Serial.println("Could not join Wi-Fi, starting hotspot instead");
-  }
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(AP_SSID, AP_PASS);
-  ipText = WiFi.softAPIP().toString() + " (hotspot)";
-  Serial.printf("Hotspot %s (password %s). Robot IP: %s  port %d\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str(), WS_PORT);
-}
-
 void setup() {
   Serial.begin(115200);
   Link.setRxBufferSize(MAX_LINE);
   Link.begin(LINK_BAUD, SERIAL_8N1, LINK_RX, LINK_TX);
   delay(300);
   Serial.println("\nMechaKin comms controller " FW_VERSION);
+  pinMode(PIN_WIFI_RESET, INPUT_PULLUP);
   displayInit();
 
   if (!LittleFS.begin(true)) Serial.println("LittleFS mount failed");
@@ -690,6 +909,7 @@ void setup() {
 
 void loop() {
   ws.loop();
+  wifiLoop();
   pollLink();
   checkPendingTimeouts();
 

@@ -4,7 +4,7 @@ How the phone app talks to the robot. Implemented by `app/src/lib/robot.tsx` (ap
 
 ## Transport
 - WebSocket, plain `ws://<robot-ip>:81`, JSON text messages.
-- Robot joins your Wi-Fi (from `wifi_config.h`) and prints its IP on the serial monitor. If it can't, it makes a hotspot `MechaKin-001` (password `mechakin123`) at `192.168.4.1`.
+- The robot joins the Wi-Fi saved in its flash and shows its IP on the display and serial monitor. With none saved, or if it can't join, it opens setup hotspot `MechaKin-001` (password `mechakin123`) at `192.168.4.1`: a web setup page on port 80, and this protocol still works on port 81. Holding the S3's BOOT button for 3 s forgets the saved Wi-Fi.
 - Any message may carry `"id"`. The robot then answers with `{"type":"ack","id":..,"ok":true}` or `{"ok":false,"error":"..."}`.
 
 ## Safety rules (robot side, always)
@@ -29,12 +29,14 @@ How the phone app talks to the robot. Implemented by `app/src/lib/robot.tsx` (ap
 | `delete_file` | `path` | Delete a file |
 | `list_files` | | Ack carries `files: [{path, size}]` |
 | `set_mode` | `mode_id` | Load `/modes/<id>.json` (speed limit, allowed skills, eyes) |
+| `get_wifi` | | Ack carries `ssid`, `connected`, `setup_mode`, `ip` |
+| `set_wifi` | `ssid`, `pass` | Save new Wi-Fi (name 1-32 chars, password empty or 8-63), then the robot restarts and joins it |
 | `set_eyes` | `eyes` | Show an eye style on the display until the next mode change (`happy`, `normal`, `focused`, `sad`, `sleepy`) |
 
 ## Robot → app
 | type | fields |
 |---|---|
-| `hello` | `robot_id`, `fw`, `movement_fw`, `proto`, `joints` (names) |
+| `hello` | `robot_id`, `fw`, `movement_fw`, `wifi` (network name, '' in setup mode), `proto`, `joints` (names) |
 | `status` | `state` (`idle`/`playing`/`estop`), `mode`, `skill`, `angles` {joint: deg}, `estop_button`, `movement_ok`, `eyes` |
 | `ack` | `id`, `ok`, `error?`, (`files` for list_files) |
 | `done` | `skill_id`: skill finished all repeats |

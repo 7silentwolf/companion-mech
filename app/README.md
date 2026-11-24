@@ -9,7 +9,7 @@ The phone is the robot's brain and microphone. This app connects to the robot ov
 | **Control** | Live sliders per joint, Home, record poses into a new skill |
 | **Skills** | Skill library. Editor: steps, simultaneous moves, repeat, limit check, auto-fix, play, upload, JSON import/export |
 | **Train** | Practice a skill, rate it 1-5 stars. The skill is tuned within safe limits, level/XP/stats update and get saved to the robot |
-| **Setup** | Digital twin: joints, channels, min/home/max, speed, calibration test buttons. Mode speed limits, eyes and allowed skills. Robot ID |
+| **Setup** | Digital twin: joints, channels, min/home/max, speed, calibration test buttons. Mode speed limits, eyes and allowed skills. Robot Wi-Fi. Robot ID |
 
 The red **STOP** button floats over every screen.
 

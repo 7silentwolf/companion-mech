@@ -26,6 +26,8 @@ export default function SetupScreen() {
   const { data, update, resetAll } = useStore();
   const robot = useRobot();
   const [robotId, setRobotId] = useState(data.training.robot_id);
+  const [wifiSsid, setWifiSsid] = useState('');
+  const [wifiPass, setWifiPass] = useState('');
   const connected = robot.conn === 'connected';
   const joints = data.profile.joints;
   const problems = joints.flatMap((j) => jointProblems(j, joints).map((p) => `${j.name}: ${p}`));
@@ -51,6 +53,31 @@ export default function SetupScreen() {
   };
 
   const test = (j: Joint, angle: number) => robot.send({ type: 'set_joint', joint: j.name, angle });
+
+  const sendWifi = () => {
+    const ssid = wifiSsid.trim();
+    if (!ssid) return Alert.alert('Wi-Fi name needed');
+    if (wifiPass.length > 0 && wifiPass.length < 8) return Alert.alert('Password too short', 'Wi-Fi passwords are 8-63 characters (empty for an open network).');
+    Alert.alert(
+      'Move robot to this Wi-Fi?',
+      `The robot saves "${ssid}" and restarts. It will get a new IP: read it on the robot's display, then connect your phone to the same Wi-Fi and enter the IP on the Robot tab.\n\nIf the password is wrong, the robot opens its setup hotspot MechaKin-001 instead.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            try {
+              await robot.request({ type: 'set_wifi', ssid, pass: wifiPass });
+              setWifiPass('');
+              Alert.alert('Sent', 'The robot is restarting on the new Wi-Fi.');
+            } catch (e: any) {
+              Alert.alert('Wi-Fi not changed', e?.message ?? String(e));
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <Screen>
@@ -132,6 +159,21 @@ export default function SetupScreen() {
             />
           </View>
         ))}
+      </Card>
+
+      <Card title="Robot Wi-Fi">
+        <Muted>
+          {connected
+            ? robot.info.wifi
+              ? `Robot is on "${robot.info.wifi}".`
+              : 'Robot is in setup mode (its own hotspot MechaKin-001).'
+            : 'Connect to the robot first.'}{' '}
+          Change it here without re-uploading. With no app: join the hotspot MechaKin-001 (password mechakin123) and a setup page opens. Holding the S3's BOOT button
+          for 3 s makes it forget the Wi-Fi.
+        </Muted>
+        <Field label="Wi-Fi name (2.4 GHz)" value={wifiSsid} onChangeText={setWifiSsid} autoCapitalize="none" autoCorrect={false} />
+        <Field label="Password" value={wifiPass} onChangeText={setWifiPass} secureTextEntry autoCapitalize="none" autoCorrect={false} />
+        <Button label="Send to robot" onPress={sendWifi} disabled={!connected} />
       </Card>
 
       <Card title="Robot identity">
