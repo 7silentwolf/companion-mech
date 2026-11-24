@@ -44,7 +44,7 @@ export interface Mode {
   limits: { max_speed_pct: number; max_accel_pct: number };
   idle_skill?: string;
   allowed_skills: string[];
-  display?: { eyes?: string };
+  display?: { eyes?: string; color?: string }; // color: "#RRGGBB" for irises and mouth
   sounds?: Record<string, string>;
 }
 

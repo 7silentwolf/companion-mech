@@ -26,6 +26,7 @@
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
+#include "setup_qr.h"  // QR codes for the setup hotspot (made by tools/qr-gen)
 
 #if __has_include("wifi_config.h")
 #include "wifi_config.h"
@@ -36,7 +37,7 @@
 #endif
 
 // ---------------- Settings ----------------
-#define FW_VERSION "comms-0.3.0"
+#define FW_VERSION "comms-0.4.0"
 #define PROTO_VERSION 1
 #define AP_SSID "MechaKin-001"
 #define AP_PASS "mechakin123"
@@ -94,6 +95,7 @@ float modeSpeedPct = 60;
 char allowed[MAX_ALLOWED][33];
 int allowedCount = -1;  // -1 = no list, everything allowed
 char modeEyes[16] = "happy";
+uint16_t modeColor = 0x07FF;  // RGB565 colour of irises and mouth (from the mode's display.color)
 char eyesOverride[16] = "";
 String ipText = "";
 
@@ -236,6 +238,18 @@ void sendSpeedToMovement() {
   sendLink(d);
 }
 
+// "#RRGGBB" -> RGB565. Without a colour, friendly = cyan, gaming = orange, others = white.
+uint16_t parseColor(const char *hex, const char *id) {
+  if (hex && hex[0] == '#' && strlen(hex) == 7) {
+    uint32_t v = strtoul(hex + 1, nullptr, 16);
+    uint8_t r = v >> 16, g = (v >> 8) & 0xFF, b = v & 0xFF;
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+  }
+  if (strcmp(id, "friendly") == 0) return 0x07FF;  // cyan
+  if (strcmp(id, "gaming") == 0) return 0xFC00;    // orange
+  return 0xFFFF;
+}
+
 bool loadMode(const char *id) {
   char path[64];
   snprintf(path, sizeof(path), "/modes/%s.json", id);
@@ -244,6 +258,7 @@ bool loadMode(const char *id) {
   strlcpy(modeId, id, sizeof(modeId));
   modeSpeedPct = clampf(doc["limits"]["max_speed_pct"] | 60.0f, 1, 100);
   strlcpy(modeEyes, doc["display"]["eyes"] | "happy", sizeof(modeEyes));
+  modeColor = parseColor(doc["display"]["color"] | "", id);
   eyesOverride[0] = 0;
   JsonArrayConst list = doc["allowed_skills"].as<JsonArrayConst>();
   if (list.isNull()) allowedCount = -1;
@@ -522,33 +537,103 @@ void wifiLoop() {
 
 // ---------------- Display ----------------
 #if USE_DISPLAY
-uint16_t eyeColor() { return strcmp(modeId, "gaming") == 0 ? ST77XX_ORANGE : ST77XX_CYAN; }
+// Landscape 160x128: top line y 0-9, face y 10-101, status bar y 104-127.
+#define EYE_L_X 50
+#define EYE_R_X 110
+#define EYE_Y 42
+#define SCLERA_R 19
+#define MOUTH_X 80
+#define MOUTH_Y 82
 
-void drawEye(int cx, int cy, const char *style, bool closed, uint16_t c, bool left) {
+int gazeX = 0, gazeY = 0;  // where the pupils look
+bool blinkClosed = false;
+uint32_t nextBlinkAt = 0, nextGazeAt = 0;
+bool lastWasEstop = false;
+bool lastWasSetup = false;
+uint8_t setupPage = 0;
+uint32_t nextSetupPageAt = 0;
+
+bool hasPupils(const char *style) {
+  return strcmp(style, "happy") != 0 && strcmp(style, "sleepy") != 0;
+}
+
+// Thick curve through the mouth: depth > 0 smiles, depth < 0 frowns.
+void drawCurve(int cx, int cy, int halfW, int depth, uint16_t c) {
+  for (int x = -halfW; x <= halfW; x++) {
+    float t = (float)x / halfW;
+    int y = cy + (int)roundf(depth * (1.0f - t * t)) - depth / 2;
+    tft.fillCircle(cx + x, y, 2, c);
+  }
+}
+
+void drawEye(int cx, int cy, const char *style, bool closed, bool left) {
+  uint16_t c = modeColor;
+  tft.fillRect(cx - 25, cy - 25, 50, 50, ST77XX_BLACK);
   if (closed || strcmp(style, "sleepy") == 0) {
-    tft.fillRoundRect(cx - 18, cy - 3, 36, 6, 3, c);
-  } else if (strcmp(style, "happy") == 0) {
+    tft.fillRoundRect(cx - 18, cy - 2, 36, 5, 2, c);
+    return;
+  }
+  if (strcmp(style, "happy") == 0) {  // ^ ^ crescents
     tft.fillCircle(cx, cy + 8, 20, c);
     tft.fillCircle(cx, cy + 18, 21, ST77XX_BLACK);
+    return;
+  }
+  int gx = gazeX, gy = gazeY;
+  if (strcmp(style, "focused") == 0) {
+    gy = constrain(gy, -1, 3);
+    tft.fillRoundRect(cx - 21, cy - 10, 42, 22, 10, ST77XX_WHITE);
+    tft.fillCircle(cx + gx, cy + 1 + gy, 8, c);
+    tft.fillCircle(cx + gx, cy + 1 + gy, 4, ST77XX_BLACK);
+    tft.fillCircle(cx + gx - 3, cy - 2 + gy, 2, ST77XX_WHITE);
+    // angry-ish brow: cut the inner top corner, then draw the brow line
+    if (left) tft.fillTriangle(cx - 24, cy - 13, cx + 24, cy - 13, cx + 24, cy + 1, ST77XX_BLACK);
+    else tft.fillTriangle(cx - 24, cy - 13, cx + 24, cy - 13, cx - 24, cy + 1, ST77XX_BLACK);
+    for (int k = 0; k < 3; k++) {
+      if (left) tft.drawLine(cx - 22, cy - 14 + k, cx + 22, cy + 1 + k, c);
+      else tft.drawLine(cx - 22, cy + 1 + k, cx + 22, cy - 14 + k, c);
+    }
+    return;
+  }
+  // normal and sad: round white eye with iris, pupil and a shine
+  if (strcmp(style, "sad") == 0) gy = 6;
+  tft.fillCircle(cx, cy, SCLERA_R, ST77XX_WHITE);
+  tft.fillCircle(cx + gx, cy + gy, 9, c);
+  tft.fillCircle(cx + gx, cy + gy, 4, ST77XX_BLACK);
+  tft.fillCircle(cx + gx - 3, cy + gy - 3, 2, ST77XX_WHITE);
+  if (strcmp(style, "sad") == 0) {  // droopy outer lids
+    if (left) tft.fillTriangle(cx - 22, cy - 22, cx + 22, cy - 22, cx - 22, cy - 2, ST77XX_BLACK);
+    else tft.fillTriangle(cx - 22, cy - 22, cx + 22, cy - 22, cx + 22, cy - 2, ST77XX_BLACK);
+  }
+}
+
+void drawMouth(const char *style) {
+  uint16_t c = modeColor;
+  tft.fillRect(MOUTH_X - 30, MOUTH_Y - 14, 60, 30, ST77XX_BLACK);
+  if (strcmp(style, "happy") == 0) {  // open grin
+    tft.fillCircle(MOUTH_X, MOUTH_Y - 4, 14, c);
+    tft.fillRect(MOUTH_X - 15, MOUTH_Y - 19, 30, 15, ST77XX_BLACK);
+    tft.fillCircle(MOUTH_X, MOUTH_Y + 6, 5, ST77XX_RED);  // tongue
   } else if (strcmp(style, "focused") == 0) {
-    tft.fillRoundRect(cx - 20, cy - 8, 40, 18, 6, c);
-    // slanted brow
-    if (left) tft.fillTriangle(cx - 22, cy - 10, cx + 22, cy - 10, cx + 22, cy + 2, ST77XX_BLACK);
-    else tft.fillTriangle(cx - 22, cy - 10, cx + 22, cy - 10, cx - 22, cy + 2, ST77XX_BLACK);
+    tft.fillRoundRect(MOUTH_X - 13, MOUTH_Y, 26, 4, 2, c);
   } else if (strcmp(style, "sad") == 0) {
-    tft.fillRoundRect(cx - 15, cy - 20, 30, 40, 12, c);
-    if (left) tft.fillTriangle(cx - 16, cy - 21, cx + 16, cy - 21, cx - 16, cy - 6, ST77XX_BLACK);
-    else tft.fillTriangle(cx - 16, cy - 21, cx + 16, cy - 21, cx + 16, cy - 6, ST77XX_BLACK);
-  } else {  // "normal" and anything unknown
-    tft.fillRoundRect(cx - 15, cy - 22, 30, 44, 12, c);
+    drawCurve(MOUTH_X, MOUTH_Y, 13, -7, c);
+  } else if (strcmp(style, "sleepy") == 0) {
+    tft.fillCircle(MOUTH_X, MOUTH_Y, 6, c);
+    tft.fillCircle(MOUTH_X, MOUTH_Y, 3, ST77XX_BLACK);
+  } else {  // normal: gentle smile
+    drawCurve(MOUTH_X, MOUTH_Y, 15, 7, c);
   }
 }
 
 void drawEyes(bool closed) {
+  drawEye(EYE_L_X, EYE_Y, currentEyes(), closed, true);
+  drawEye(EYE_R_X, EYE_Y, currentEyes(), closed, false);
+}
+
+void drawFace() {
   tft.fillRect(0, 10, 160, 92, ST77XX_BLACK);
-  uint16_t c = eyeColor();
-  drawEye(52, 54, currentEyes(), closed, c, true);
-  drawEye(108, 54, currentEyes(), closed, c, false);
+  drawEyes(blinkClosed);
+  drawMouth(currentEyes());
 }
 
 void drawStatusBar() {
@@ -563,13 +648,6 @@ void drawStatusBar() {
   }
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(2, 106);
-  if (setupMode) {
-    tft.setTextColor(ST77XX_YELLOW);
-    tft.print("Join Wi-Fi " AP_SSID);
-    tft.setCursor(2, 117);
-    tft.print("pw:" AP_PASS " 192.168.4.1");
-    return;
-  }
   if (restartAt) {
     tft.setTextColor(ST77XX_YELLOW);
     tft.print(ipText);
@@ -583,30 +661,77 @@ void drawStatusBar() {
     tft.setTextColor(ST77XX_YELLOW);
     tft.print("no movement link");
   } else {
+    tft.setTextColor(modeColor);
     tft.print(modeId);
+    tft.setTextColor(ST77XX_WHITE);
     tft.print(" | ");
     tft.print(mvState);
     tft.print(clientCount > 0 ? " | app" : "");
   }
 }
 
-bool lastWasEstop = false;
-bool blinkClosed = false;
-uint32_t nextBlinkAt = 0;
+// One QR code on a white box (with the 2-module quiet zone phones need).
+void drawQR(const uint8_t *data, uint8_t n, int x, int y, int scale) {
+  int box = (n + 4) * scale;
+  tft.fillRect(x, y, box, box, ST77XX_WHITE);
+  int rowBytes = (n + 7) / 8;
+  for (int r = 0; r < n; r++)
+    for (int col = 0; col < n; col++)
+      if (data[r * rowBytes + col / 8] & (0x80 >> (col % 8)))
+        tft.fillRect(x + (col + 2) * scale, y + (r + 2) * scale, scale, scale, ST77XX_BLACK);
+}
+
+void printLines(int x, int y, const char *const *lines, int count) {
+  for (int i = 0; i < count; i++) {
+    tft.setCursor(x, y + i * 11);
+    tft.print(lines[i]);
+  }
+}
+
+// Setup mode: two pages, switching every 7 s. 1 = join the hotspot, 2 = open the setup page.
+void drawSetupScreen() {
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setCursor(2, 1);
+  if (setupPage == 0) {
+    tft.setTextColor(ST77XX_YELLOW);
+    tft.print("1/2 Join robot Wi-Fi");
+    drawQR(QR_WIFI, QR_WIFI_SIZE, 1, 12, 3);  // 99 px
+    static const char *const right[] = {"Open the", "phone", "camera", "and scan", "this code"};
+    tft.setTextColor(ST77XX_WHITE);
+    printLines(104, 26, right, 5);
+    tft.setCursor(2, 117);
+    tft.setTextColor(ST77XX_CYAN);
+    tft.print(AP_SSID " / " AP_PASS);
+  } else {
+    tft.setTextColor(ST77XX_YELLOW);
+    tft.print("2/2 Open setup page");
+    drawQR(QR_URL, QR_URL_SIZE, 1, 12, 3);  // 87 px
+    static const char *const right[] = {"Then scan", "this to", "pick your", "home", "Wi-Fi"};
+    tft.setTextColor(ST77XX_WHITE);
+    printLines(96, 26, right, 5);
+    tft.setCursor(2, 117);
+    tft.setTextColor(ST77XX_CYAN);
+    tft.print("or open 192.168.4.1");
+  }
+}
 
 void displayInit() {
   SPI.begin(TFT_SCK, -1, TFT_MOSI, TFT_CS);
   tft.initR(TFT_TAB);
   tft.setRotation(1);  // landscape 160x128
+  tft.setTextWrap(false);
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
   tft.setTextSize(2);
-  tft.setCursor(20, 50);
+  tft.setCursor(32, 56);
   tft.print("MechaKin");
   nextBlinkAt = millis() + 3000;
 }
 
 void displayLoop() {
+  uint32_t now = millis();
   bool estop = strcmp(mvState, "estop") == 0;
   if (estop) {
     if (!lastWasEstop || displayDirty) {
@@ -624,19 +749,49 @@ void displayLoop() {
     return;
   }
   if (lastWasEstop) {
-    tft.fillScreen(ST77XX_BLACK);
     lastWasEstop = false;
+    lastWasSetup = false;
+    tft.fillScreen(ST77XX_BLACK);
     displayDirty = true;
   }
-  uint32_t now = millis();
-  bool blinkChanged = false;
+
+  if (setupMode && !restartAt) {
+    if (!lastWasSetup || now >= nextSetupPageAt) {
+      if (lastWasSetup) setupPage ^= 1;
+      lastWasSetup = true;
+      nextSetupPageAt = now + 7000;
+      drawSetupScreen();
+    }
+    displayDirty = false;
+    return;
+  }
+  if (lastWasSetup) {
+    lastWasSetup = false;
+    tft.fillScreen(ST77XX_BLACK);
+    displayDirty = true;
+  }
+
+  bool eyesChanged = false;
   if (now >= nextBlinkAt) {
     blinkClosed = !blinkClosed;
     nextBlinkAt = now + (blinkClosed ? 150 : 2500 + (esp_random() % 3000));
-    blinkChanged = true;
+    eyesChanged = true;
   }
-  if (displayDirty || blinkChanged) drawEyes(blinkClosed);
-  if (displayDirty) drawStatusBar();
+  if (now >= nextGazeAt && !blinkClosed && hasPupils(currentEyes())) {
+    // Look somewhere new now and then; often straight ahead.
+    bool centre = esp_random() % 3 == 0;
+    gazeX = centre ? 0 : (int)(esp_random() % 13) - 6;
+    gazeY = centre ? 0 : (int)(esp_random() % 9) - 4;
+    nextGazeAt = now + 1500 + (esp_random() % 2500);
+    eyesChanged = true;
+  }
+  if (displayDirty) {
+    drawFace();
+    drawStatusBar();
+  } else if (eyesChanged) {
+    drawEyes(blinkClosed);
+    drawMouth(currentEyes());  // happy eyes overlap the grin's corners
+  }
   displayDirty = false;
 }
 #else

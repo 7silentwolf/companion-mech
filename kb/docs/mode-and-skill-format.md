@@ -22,10 +22,12 @@ Draft only. Final format depends on the motor architecture. The robot's firmware
   "limits": { "max_speed_pct": 60, "max_accel_pct": 50 },
   "idle_skill": "nod",
   "allowed_skills": ["wave", "nod", "dance_basic"],
-  "display": { "eyes": "happy" },
+  "display": { "eyes": "happy", "color": "#22D3EE" },
   "sounds": { "greeting": "hello.wav" }
 }
 ```
+
+`display.eyes`: `normal`, `happy`, `focused`, `sad`, `sleepy` (eyes and mouth). `display.color`: `#RRGGBB` for the irises and mouth. Without it: friendly = cyan, gaming = orange, others = white.
 
 ## Skill file
 ```json

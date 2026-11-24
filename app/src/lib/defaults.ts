@@ -69,7 +69,7 @@ export const DEFAULT_MODES: Mode[] = [
     limits: { max_speed_pct: 60, max_accel_pct: 50 },
     idle_skill: 'nod',
     allowed_skills: ['wave', 'nod', 'dance_basic'],
-    display: { eyes: 'happy' },
+    display: { eyes: 'happy', color: '#22D3EE' },
     sounds: { greeting: 'hello.wav' },
   },
   {
@@ -79,7 +79,7 @@ export const DEFAULT_MODES: Mode[] = [
     limits: { max_speed_pct: 85, max_accel_pct: 70 },
     idle_skill: 'nod',
     allowed_skills: ['wave', 'nod', 'dance_basic'],
-    display: { eyes: 'focused' },
+    display: { eyes: 'focused', color: '#FF8C00' },
     sounds: { greeting: 'ready.wav' },
   },
 ];
@@ -92,3 +92,15 @@ export const DEFAULT_TRAINING: TrainingRecord = {
 
 /** Eye styles the comms board can draw on the display. */
 export const EYE_STYLES = ['happy', 'normal', 'focused', 'sad', 'sleepy'] as const;
+
+/** Colours for the eyes and mouth on the display, one per mode. */
+export const FACE_COLORS = [
+  { name: 'cyan', hex: '#22D3EE' },
+  { name: 'orange', hex: '#FF8C00' },
+  { name: 'green', hex: '#4ADE80' },
+  { name: 'pink', hex: '#F472B6' },
+  { name: 'purple', hex: '#A78BFA' },
+  { name: 'yellow', hex: '#FACC15' },
+  { name: 'red', hex: '#F87171' },
+  { name: 'white', hex: '#FFFFFF' },
+] as const;

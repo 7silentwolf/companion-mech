@@ -30,8 +30,9 @@ Matches **Stage B** in `kb/docs/wiring-pins.md` (and `wiring-pins.html`).
 
 ### 2. Comms board alone
 1. Board **ESP32S3 Dev Module**. If you use the board's USB port labelled "USB" (not "UART"), set **Tools → USB CDC On Boot → Enabled** or the Serial Monitor stays empty.
-2. Upload `mechakin_comms/mechakin_comms.ino`. The first time, there is no Wi-Fi saved, so the display says **Join Wi-Fi MechaKin-001**:
-   - On your phone, join Wi-Fi **MechaKin-001**, password **mechakin123**. A setup page opens (if not, open `http://192.168.4.1` in the browser).
+2. Upload `mechakin_comms/mechakin_comms.ino`. The first time, there is no Wi-Fi saved, so the display shows two QR pages in turn (every 7 s):
+   - **1/2 Join robot Wi-Fi:** scan it with the phone camera and tap *Connect*. This joins hotspot **MechaKin-001** (password **mechakin123**, also printed on screen).
+   - **2/2 Open setup page:** scan it to open the setup page, or wait for the phone's "Sign in to network" pop-up. It also works by typing `http://192.168.4.1`.
    - Tap your home Wi-Fi (2.4 GHz), type its password, then **Save and restart**.
    - Put the phone back on your home Wi-Fi. The display now shows the robot's IP, eyes, and `no movement link` (normal until step 3).
 3. Display blank? Check the backlight pin: **LED/BL/BLK → 3V3**. Picture shifted, noisy edge, or wrong colours? Change `TFT_TAB` at the top to `INITR_GREENTAB` or `INITR_REDTAB`.
@@ -55,7 +56,11 @@ The S3 remembers the Wi-Fi in its own flash. To move it to another network:
 - **Without the app:** if the robot can't join its saved Wi-Fi at power-on (new place, changed password), it opens the **MechaKin-001** hotspot and setup page by itself. Join it and pick the new network.
 - **Forget it:** hold the S3's **BOOT** button for 3 seconds. It forgets the Wi-Fi and opens the setup hotspot.
 - While in setup mode it retries the saved Wi-Fi every 30 s (when nobody is on the hotspot), so a router that was slow to start is fine.
+- The QR codes are pre-made in `mechakin_comms/setup_qr.h`. If you change `AP_SSID`/`AP_PASS`, regenerate it: `cd tools/qr-gen && npm install && AP_SSID=... AP_PASS=... npm start`.
 - `wifi_config.h` is optional. If present, it's only the starting default before anything is saved.
+
+## Face on the display
+White eyes with irises and pupils that look around and blink, plus a mouth. The style comes from the mode (`display.eyes`: `normal`, `happy`, `focused`, `sad`, `sleepy`). The colour of the irises and mouth comes from `display.color` (`#RRGGBB`). Default: Friendly = cyan, Gaming = orange. Change both in the app's Setup tab, then pick the mode again so it's sent.
 
 ## Tuning
 - `SERVOMIN` / `SERVOMAX` (movement sketch): pulse range, same as step 1. Narrow it if servos buzz at the ends.

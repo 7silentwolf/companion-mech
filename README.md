@@ -7,6 +7,7 @@ Working name: **MechaKin**: a physical robotic-creature ecosystem for kids in In
 - [`app/`](app/README.md): mobile app (Expo / React Native). Connect, E-STOP, joint control, skills, modes, training.
 - [`firmware/`](firmware/README.md): trial-1 firmware: ESP32-S3 comms (Wi-Fi, display) + ESP32 movement (PCA9685, stop button).
 - [`tools/mock-robot/`](tools/mock-robot/mock-robot.mjs): fake robot to test the app without hardware.
+- [`tools/qr-gen/`](tools/qr-gen/make-qr.mjs): regenerates the setup-screen QR codes in the firmware.
 
 ## Start here
 1. Wire and run the one-servo test: `kb/docs/step-1-servo-test.md`

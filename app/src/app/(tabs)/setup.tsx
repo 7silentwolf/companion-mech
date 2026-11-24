@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, Switch, Text, View } from 'react-native';
 import { Button, Card, Chip, Field, Muted, Row, Screen, colors, styles } from '../../components/ui';
-import { EYE_STYLES } from '../../lib/defaults';
+import { EYE_STYLES, FACE_COLORS } from '../../lib/defaults';
 import { useRobot } from '../../lib/robot';
 import { paths, useStore } from '../../lib/store';
 import type { Joint, Mode } from '../../lib/types';
@@ -125,7 +125,7 @@ export default function SetupScreen() {
       ))}
 
       <Card title="Modes">
-        <Muted>Mode files live on the robot (/modes). Speed limit caps every skill in that mode.</Muted>
+        <Muted>Mode files live on the robot (/modes). Speed limit caps every skill in that mode. After changing a colour or eyes, pick the mode again on the Robot tab (or Sync) to send it.</Muted>
         {data.modes.map((m) => (
           <View key={m.mode_id} style={{ gap: 4 }}>
             <Text style={{ fontWeight: '700', color: colors.text }}>{m.name}</Text>
@@ -136,6 +136,27 @@ export default function SetupScreen() {
                 keyboardType="number-pad"
                 onChangeText={(t) => setMode(m.mode_id, (x) => ({ ...x, limits: { ...x.limits, max_speed_pct: Math.max(1, Math.min(100, num(t, 50))) } }))}
               />
+            </Row>
+            <Text style={styles.label}>Face colour</Text>
+            <Row style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+              {FACE_COLORS.map((c) => {
+                const active = (m.display?.color ?? '').toUpperCase() === c.hex;
+                return (
+                  <Pressable
+                    key={c.hex}
+                    accessibilityLabel={c.name}
+                    onPress={() => setMode(m.mode_id, (x) => ({ ...x, display: { ...x.display, color: c.hex } }))}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 17,
+                      backgroundColor: c.hex,
+                      borderWidth: active ? 3 : 1,
+                      borderColor: active ? colors.text : colors.border,
+                    }}
+                  />
+                );
+              })}
             </Row>
             <Text style={styles.label}>Eyes on the display</Text>
             <Row style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>

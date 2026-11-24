@@ -1,0 +1,9 @@
+{
+  "name": "mechakin-qr-gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generates firmware/mechakin_comms/setup_qr.h (QR codes for the Wi-Fi setup hotspot)",
+  "scripts": { "start": "node make-qr.mjs" },
+  "dependencies": { "qrcode": "^1.5.4" }
+}
