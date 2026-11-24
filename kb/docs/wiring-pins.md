@@ -2,7 +2,7 @@
 
 Pin numbers are suggestions. Check them against your own boards' pinout diagrams before wiring, because the labels printed on the board are what matter. Power off while connecting. Never power servos from the ESP32 pins. Join all grounds.
 
-## Stage A: trial 1 as the firmware is written now (one regular ESP32 + PCA9685)
+## Stage A: movement board wiring (regular ESP32 + PCA9685)
 
 These pins are also the movement board's pins in Stage B: `firmware/mechakin_movement` (PIN_SDA 21, PIN_SCL 22, PIN_ESTOP 27). The single-board firmware was replaced by the two-board one.
 

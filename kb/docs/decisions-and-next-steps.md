@@ -13,6 +13,9 @@
 - App ↔ robot: JSON over WebSocket, protocol v1 (`app-robot-protocol.md`).
 - Trial 1 uses the two-board split from the start (wired per `wiring-pins.md`): ESP32-S3 comms + regular ESP32 movement over UART. First test without speaker and SD card.
 - Voice v0: phone keyboard dictation + local keyword matching. Cloud AI later.
+- Robot Wi-Fi is not compiled into the firmware. It's stored on the S3 and set through a setup hotspot (MechaKin-001, QR codes on the display) or from the app.
+- The display shows the robot's personality: eyes with pupils (gaze, blink) and a mouth. Eye style and face colour are per mode (Friendly = cyan/happy, Gaming = orange/focused).
+- The movement board enforces all safety limits itself and keeps its own copy of the joint limits, so it stays safe even if the S3 or Wi-Fi fails.
 
 ## Open decisions
 1. Capsule contents: complete creature / unfolding creature / body shell on common base?
@@ -24,9 +27,14 @@
 7. Prototype budget.
 8. Final product name (check trademark).
 
-## Current step
-Step 1: servo test (see `step-1-servo-test.md`). Then servos 2-3, stop button, simple wave, then the build order in `trial-1-plan.md`.
-Then follow the test order in `firmware/README.md` (movement board alone → comms board alone → link → app). Before the hardware is ready, test the app with `tools/mock-robot`.
+## Current step (2026-11-25)
+Both boards are flashed and linked. Next:
+1. Check the face and the setup QR codes on the display (tab colour and offset, readability, QR scan distance).
+2. Save the home Wi-Fi via the setup hotspot and note the robot's IP.
+3. Run the app (`npx expo start`, Expo Go), connect on port 81, **Sync everything to robot**.
+4. Test: Control sliders, stop button + app STOP, Wave/Nod/Dance, display test, mode switch (colour change), one training session.
+5. Calibrate joint min/max in the Setup tab and upload the profile.
+After that: build order step 5 (modes and training on real hardware), then speaker + SD (`trial-1-plan.md`). Commands are in `dev-setup.md`.
 
 ## Later roadmap
 Digital twin + validation -> JSON movement engine -> Android app -> AI action generation -> one creature prototype with simulated abilities -> two-robot arena test -> parent interviews, BIS and data-protection review, IP registration -> capsule pilot batch.
@@ -39,3 +47,4 @@ Digital twin + validation -> JSON movement engine -> Android app -> AI action ge
 - 2026-11-23: Firmware v0.2 split into `mechakin_movement` (ESP32) + `mechakin_comms` (S3 with display eyes), per the wiring diagram. App: movement-link warning, display test, eye styles. Speaker and SD skipped for the first test.
 - 2026-11-24: Robot Wi-Fi is saved in the S3's flash, not compiled in. It's set from the setup hotspot page (MechaKin-001), from the app's Setup tab, or reset with BOOT held 3 s. `wifi_config.h` is now optional.
 - 2026-11-24: Both boards flashed and the UART link confirmed working (first real compile: no errors). Display face v2: eyes with irises/pupils (gaze + blink) and mouth; per-mode face colour (`display.color`). Setup mode shows QR codes on screen (join hotspot, open setup page).
+- 2026-11-25: KB brought up to date: status, current step, trial-1 progress, parts confirmed (ESP32-S3 with 8 MB PSRAM + ESP32 with CP2102), new `dev-setup.md` (tools, ports, build/flash commands, gotchas).

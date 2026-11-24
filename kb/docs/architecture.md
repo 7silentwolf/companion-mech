@@ -34,5 +34,12 @@ Format should support simultaneous motors, timing, speed/acceleration, transitio
 ## Initial hardware (from rrr concept)
 ESP32-S3 comms; separate ESP32/RP2040 movement; PCA9685 servo driver; metal-gear servos; colour TFT; small speaker+amp; MEMS mic; Wi-Fi; separate regulated motor and logic power. First build: head + two shoulders + two elbows (5 DOF).
 
+## Trial 1 as built (2026-11-25)
+- Phone: Expo app (`../app`). It validates every skill against the digital twin before sending, and has a STOP button on every screen.
+- ESP32-S3 comms (`../firmware/mechakin_comms`): Wi-Fi (saved on the board, setup hotspot + QR), WebSocket server on port 81, LittleFS storage for modes/skills/profile/training, ST7735 face display, forwards moves over UART.
+- ESP32 movement (`../firmware/mechakin_movement`): PCA9685 servos, joint + speed limits, stop button, stops on link silence. Testable alone by typing JSON into its serial monitor.
+- Link: UART 115200, one JSON message per line (`app-robot-protocol.md`).
+- Not yet: speaker/audio, microSD, cloud AI, acceleration curves.
+
 ## Applying to creatures
 One mechanical profile per creature, shared controller platform, swappable bodies and personalities. Creatures need not share identical mechanics.
