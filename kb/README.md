@@ -10,10 +10,12 @@ Smartphone = AI brain and microphone. Robot = execution layer with low-cost cont
 
 ## Status (2026-11-25)
 Idea stage. No company yet. Trial-1 hardware is wired as the two-board layout in `docs/wiring-pins.md` (ESP32-S3 comms + display, regular ESP32 movement + PCA9685 + 3 servos + stop button). No speaker or SD card yet.
+- **First full-loop test passed on 2026-11-23** (`docs/trial-1-test-log.md`): phone app → Wi-Fi → S3 → UART → ESP32 → PCA9685 → servos, plus display, STOP and skills.
 - Firmware for both boards compiles, is flashed, and the UART link between them works.
 - The display shows a face (eyes with pupils, mouth, colour per mode), plus QR codes for Wi-Fi setup.
 - The robot's Wi-Fi is set without re-flashing (setup hotspot page or app).
-- Mobile app v0.1 (Expo) is ready. Next: save the home Wi-Fi on the robot, connect the app, and test sliders, skills, STOP and training on the real servos.
+- Mobile app v0.1 (Expo) works with the robot. Next: calibrate the servos, test on a cardboard mock-up, try training, then add the speaker.
+- **Laptop warning:** the laptop's disk showed filesystem corruption on 2026-11-23, and 4 files reached GitHub as zero bytes (repaired 2026-11-25). Check the disk (`dev-setup.md`) and push after every session.
 
 ## Contents
 - `docs/trial-1-plan.md` - what trial 1 includes and build order
@@ -21,6 +23,7 @@ Idea stage. No company yet. Trial-1 hardware is wired as the two-board layout in
 - `docs/mode-and-skill-format.md` - mode, skill, profile and training file formats
 - `docs/app-robot-protocol.md` - WebSocket messages between app and robot, and the UART link between the boards
 - `docs/dev-setup.md` - laptop tools, which board is on which port, build/flash/run commands, gotchas
+- `docs/trial-1-test-log.md` - results of hardware test sessions, lessons, where to resume
 - `docs/wiring-pins.html` / `wiring-pins.md` - pin-by-pin wiring for both boards, display, PCA9685, stop button (open the HTML in a browser)
 - `docs/architecture.md` - combined technical architecture
 - `docs/product-concept.md` - capsule, creatures, competitions, revenue

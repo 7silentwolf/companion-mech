@@ -44,7 +44,7 @@ $CLI --config-file $CFG monitor -p /dev/ttyACM0 --config baudrate=115200
 Or open the same `.ino` files in the IDE and use the Upload button.
 
 Expected boot messages:
-- Movement: `MechaKin movement controller move-0.2.0` … `Ready`
+- Movement: `MechaKin movement controller move-0.2.1`, `PCA9685 found at 0x40`, … `Ready`
 - Comms: `MechaKin comms controller comms-0.4.0`, then `Connected. Robot IP: …` (or `Wi-Fi setup mode`), then `Movement link OK`
 
 ## Robot Wi-Fi (no re-flashing)
@@ -65,8 +65,13 @@ Mock robot (no hardware): `cd tools/mock-robot && npm install && PORT=8090 npm s
 Setup-screen QR codes: `tools/qr-gen` (only needed if the hotspot name or password changes).
 
 ## Gotchas seen so far
+- **Laptop disk corruption (2026-11-23):** the disk (`/dev/sda2`, ext4) showed "Bad message" errors and bad bitmap checksums. 4 files reached GitHub as zero bytes. To do: back up, check SMART health (Disks app), run `e2fsck -f` from a live USB, test the RAM (Memtest86+), and replace the disk if SMART shows errors. Push after every session. Quick check that no tracked file got zeroed: `git fsck --full`, and look for files full of NUL bytes before committing.
+- Display shows only grainy static: DC (labelled **A0**) not connected, or a bad header solder joint.
+- Opening the movement board's serial port resets it. Wait about 3 s before typing commands. Typed commands get a reply like `{"type":"ack","ok":true,"cmd":"set_joint"}`.
+- The IDE 2 Serial Monitor is slow on this laptop. `arduino-cli monitor` or a small Python script works better.
+- Don't run two compiles (IDE + command line) at the same time. It can damage the build cache.
 - The IDE's first launch downloads ~400 MB (AVR boards and built-in libraries) and looks frozen. Wait for it.
 - The ESP32 boards package download can time out on GitHub. Click Install again; finished parts are kept. For slow links, add `network: connection_timeout: 600s` to `~/.arduinoIDE/arduino-cli.yaml`.
 - Upload stuck on "Connecting…": hold the board's BOOT button.
-- `git push` needs the user's GitHub login. This laptop has no stored credentials, so the user pushes.
+- `git push` uses a GitHub classic token (`repo` scope) saved with `credential.helper store` (2026-11-25). If pasting the token gives "contains carriage return", save it with `git credential approve` after stripping `\r`.
 - The robot's Wi-Fi must be 2.4 GHz.

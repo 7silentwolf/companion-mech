@@ -28,13 +28,15 @@
 8. Final product name (check trademark).
 
 ## Current step (2026-11-25)
-Both boards are flashed and linked. Next:
-1. Check the face and the setup QR codes on the display (tab colour and offset, readability, QR scan distance).
-2. Save the home Wi-Fi via the setup hotspot and note the robot's IP.
-3. Run the app (`npx expo start`, Expo Go), connect on port 81, **Sync everything to robot**.
-4. Test: Control sliders, stop button + app STOP, Wave/Nod/Dance, display test, mode switch (colour change), one training session.
-5. Calibrate joint min/max in the Setup tab and upload the profile.
-After that: build order step 5 (modes and training on real hardware), then speaker + SD (`trial-1-plan.md`). Commands are in `dev-setup.md`.
+The full loop already worked on 2026-11-23 (`trial-1-test-log.md`). Since then, new firmware: comms-0.4.0 (face, colours, QR Wi-Fi setup, Wi-Fi saved on the board) and move-0.2.1 (PCA9685 check, replies to typed commands). Next:
+0. Laptop: check the disk health and keep a backup (see `dev-setup.md`). Push after every session.
+1. Flash move-0.2.1 to the movement board (it compiles; the boards were unplugged on 2026-11-25).
+2. On the S3 (comms-0.4.0), save the home Wi-Fi once with the setup QR codes. The old `wifi_config.h` is gone, so it starts in setup mode.
+3. Check the new face (pupils, mouth, colours) and the mode colour switch from the app.
+4. Calibrate the servos in the app (Setup tab): horns off, find safe min/max, upload the profile.
+5. Cardboard arm/head mock-up: test Wave, Nod, Dance.
+6. Try training (Train tab) and confirm the updated skill files land on the robot (Robot tab → List files).
+7. Then the speaker (MAX98357A already wired on GPIO5/6/7; firmware not written yet), later the SD card. Optional: PCA9685 OE → GPIO4 for a hardware stop.
 
 ## Later roadmap
 Digital twin + validation -> JSON movement engine -> Android app -> AI action generation -> one creature prototype with simulated abilities -> two-robot arena test -> parent interviews, BIS and data-protection review, IP registration -> capsule pilot batch.
@@ -45,6 +47,8 @@ Digital twin + validation -> JSON movement engine -> Android app -> AI action ge
 - 2026-11-23: Mobile app v0.1 (connect, E-STOP, joint control, pose recording, skill editor with validation, modes, training), protocol v1, trial-1 firmware v0.1 and mock robot added.
 - 2026-11-23: Added `wiring-pins.html` (pin numbers for trial 1 and the later two-controller split). Decision: files Claude makes in chat are saved into this folder so VS Code sees the same docs.
 - 2026-11-23: Firmware v0.2 split into `mechakin_movement` (ESP32) + `mechakin_comms` (S3 with display eyes), per the wiring diagram. App: movement-link warning, display test, eye styles. Speaker and SD skipped for the first test.
+- 2026-11-23: First full-loop test passed (see `trial-1-test-log.md`). Display fix: A0 (= DC) wasn't connected. The laptop disk showed filesystem corruption.
 - 2026-11-24: Robot Wi-Fi is saved in the S3's flash, not compiled in. It's set from the setup hotspot page (MechaKin-001), from the app's Setup tab, or reset with BOOT held 3 s. `wifi_config.h` is now optional.
 - 2026-11-24: Both boards flashed and the UART link confirmed working (first real compile: no errors). Display face v2: eyes with irises/pupils (gaze + blink) and mouth; per-mode face colour (`display.color`). Setup mode shows QR codes on screen (join hotspot, open setup page).
 - 2026-11-25: KB brought up to date: status, current step, trial-1 progress, parts confirmed (ESP32-S3 with 8 MB PSRAM + ESP32 with CP2102), new `dev-setup.md` (tools, ports, build/flash commands, gotchas).
+- 2026-11-25: GitHub had 4 zero-filled files from the 2026-11-23 corrupted-disk session. Merged, keeping intact local copies plus the test log. The lost movement change (PCA9685 detection, replies to typed commands) was rewritten as move-0.2.1.

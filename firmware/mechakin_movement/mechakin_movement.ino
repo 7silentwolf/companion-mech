@@ -16,7 +16,7 @@
 #include <ArduinoJson.h>
 
 // ---------------- Settings ----------------
-#define FW_VERSION "move-0.2.0"
+#define FW_VERSION "move-0.2.1"
 #define PIN_SDA 21
 #define PIN_SCL 22
 #define PIN_ESTOP 27     // button between GPIO27 and GND
@@ -38,6 +38,7 @@
 #define LINK_SILENCE_MS 1500  // stop if the comms board goes quiet while playing
 #define STATUS_EVERY_MS 200
 #define PROFILE_PATH "/profile.json"
+#define PCA9685_ADDR 0x40
 
 // ---------------- State ----------------
 struct Joint {
@@ -53,7 +54,8 @@ struct Segment {
 };
 enum RunState { RUN_IDLE, RUN_PLAYING, RUN_ESTOP };
 
-Adafruit_PWMServoDriver pwm(0x40);
+Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
+bool pcaFound = false;  // did the PCA9685 answer on I2C at boot?
 
 Joint joints[MAX_JOINTS];
 int jointCount = 0;
@@ -289,6 +291,7 @@ void sendHello(Stream &out) {
   JsonDocument h;
   h["type"] = "hello";
   h["fw"] = FW_VERSION;
+  h["pca9685"] = pcaFound;
   JsonArray names = h["joints"].to<JsonArray>();
   for (int i = 0; i < jointCount; i++) names.add(joints[i].name);
   sendLine(out, h);
@@ -367,6 +370,13 @@ void handleLine(Stream &out, const char *line, size_t len) {
     e["type"] = "error";
     e["error"] = error;
     sendLine(out, e);
+  } else if (&out == &Serial && strcmp(type, "ping") != 0 && strcmp(type, "get_status") != 0 && strcmp(type, "hello") != 0) {
+    // Typed in the serial monitor without an id: confirm it was understood.
+    JsonDocument ack;
+    ack["type"] = "ack";
+    ack["ok"] = true;
+    ack["cmd"] = type;
+    sendLine(out, ack);
   }
 }
 
@@ -412,6 +422,10 @@ void setup() {
   pinMode(PIN_ESTOP, INPUT_PULLUP);
 
   Wire.begin(PIN_SDA, PIN_SCL);
+  Wire.beginTransmission(PCA9685_ADDR);
+  pcaFound = (Wire.endTransmission() == 0);
+  if (pcaFound) Serial.println("PCA9685 found at 0x40");
+  else Serial.println("PCA9685 NOT found at 0x40: check SDA->GPIO21, SCL->GPIO22, VCC->3V3, GND. Servos won't move.");
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(50);

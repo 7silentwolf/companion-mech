@@ -31,11 +31,11 @@ phone app -> robot -> modes from storage -> display + sound -> training that cha
 ### Progress (2026-11-25)
 | Step | Status |
 |---|---|
-| 1. Servos + e-stop on the movement controller | Firmware done and flashed (`firmware/mechakin_movement`). Servo moves still to be checked from the app |
+| 1. Servos + e-stop on the movement controller | Done and tested 2026-11-23 (`trial-1-test-log.md`). Calibration still to do |
 | 2. Movement files from storage | Done: skills/modes/profile live in the S3's LittleFS. The movement board keeps its own copy of the joint limits |
-| 3. S3 ↔ phone over Wi-Fi/WebSocket | Firmware done and flashed. Wi-Fi via setup hotspot/QR. App v0.1 ready, first real connection pending |
-| 4. Display, then speaker | Display: face + status + setup QR done. Speaker: not yet (no speaker in hand) |
-| 5. Modes, then training updating saved files | Done in app and firmware. Needs testing on the real robot |
+| 3. S3 ↔ phone over Wi-Fi/WebSocket | Done and tested 2026-11-23 (connect, sync, control, skills, STOP). Wi-Fi now set by setup hotspot/QR |
+| 4. Display, then speaker | Display tested 2026-11-23; face v2 + setup QR added 2026-11-24. Speaker: amp wired on GPIO5/6/7, no speaker or firmware yet |
+| 5. Modes, then training updating saved files | Done in app and firmware. Training on the real robot still to test |
 
 Not in the first test: speaker/amp audio, microSD (sounds, training history). Storage uses the S3's internal flash for now.
 

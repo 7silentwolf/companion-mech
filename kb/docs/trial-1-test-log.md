@@ -35,3 +35,6 @@ The laptop's main disk (`/dev/sda2`, ext4) showed spreading filesystem corruptio
 4. Try training (Train tab) and check that the updated skill files land on the robot (Robot tab → List files).
 5. Then add the speaker (MAX98357A already wired on GPIO5/6/7) and later the SD card. Firmware for sound isn't written yet.
 6. Optional: wire PCA9685 OE → GPIO4 for a hardware-level stop.
+
+## Note (2026-11-25)
+Firmware changed after session 1: comms-0.4.0 (Wi-Fi saved on the board with a setup QR/hotspot, so `wifi_config.h` is no longer needed; face with pupils and mouth; colour per mode) and move-0.2.1. The "next session" list above still applies. The updated order is in `decisions-and-next-steps.md` → Current step.

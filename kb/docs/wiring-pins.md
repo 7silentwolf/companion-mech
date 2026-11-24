@@ -59,7 +59,7 @@ Both boards use 3.3V signals, so no level shifter is needed.
 
 Notes:
 - Display backlight: connect the display's LED / BL / BLK pin to 3V3, or the screen stays dark. (It isn't in the table above.)
-- Display pin names differ between modules. "SDA" on many displays means MOSI, and some call CS "CE".
+- Display pin names differ between modules. On ours **A0 = DC** (→ GPIO9), SDA = MOSI, SCL = SCK, RES = RST. If A0 isn't connected, the screen shows only grainy static. "SDA" on many displays means MOSI, and some call CS "CE".
 - The speaker (3W, 4 ohm) connects to the amp's output terminals. Keep speaker wires away from servo wires to reduce noise.
 - Wire the SD card and display on the shared SPI lines one at a time, and test each before adding the next.
 

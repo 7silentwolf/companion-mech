@@ -35,7 +35,7 @@ Matches **Stage B** in `kb/docs/wiring-pins.md` (and `wiring-pins.html`).
    - **2/2 Open setup page:** scan it to open the setup page, or wait for the phone's "Sign in to network" pop-up. It also works by typing `http://192.168.4.1`.
    - Tap your home Wi-Fi (2.4 GHz), type its password, then **Save and restart**.
    - Put the phone back on your home Wi-Fi. The display now shows the robot's IP, eyes, and `no movement link` (normal until step 3).
-3. Display blank? Check the backlight pin: **LED/BL/BLK → 3V3**. Picture shifted, noisy edge, or wrong colours? Change `TFT_TAB` at the top to `INITR_GREENTAB` or `INITR_REDTAB`.
+3. Display blank? Check the backlight pin: **LED/BL/BLK → 3V3**. Only grainy static? **DC (labelled A0) → GPIO9** isn't connected, or a header joint is bad. Picture shifted, noisy edge, or wrong colours? Change `TFT_TAB` at the top to `INITR_GREENTAB` or `INITR_REDTAB`.
 
 ### 3. Link the boards
 Wire the UART (power off): movement **GPIO17 (TX2) → S3 GPIO18**, movement **GPIO16 (RX2) ← S3 GPIO17**, **GND ↔ GND**. Power both by USB.
