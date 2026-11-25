@@ -46,6 +46,7 @@ Must support: simultaneous motors, timing, speed/acceleration, transitions, repe
 v0.2 additions (implemented in the app and firmware):
 - Steps run one after another. `"with_previous": true` starts a step together with the previous one (simultaneous motors).
 - `"repeat": 2` plays the step list twice (1-10).
+- Optional `"combo": ["jab", "jab", "cross"]`: the skill was built in Teach mode from these saved skills. Its steps are a copy, so the robot just plays steps and needs nothing new.
 - Optional `"name"` and `"stat"` (`speed` / `agility` / `intelligence`: the stat this skill trains).
 - Limits per step: 50-10000 ms, at most 64 steps, whole skill at most 60 s.
 - Speed = angle change / duration. It must stay under the joint's `max_speed_dps` × the mode's `max_speed_pct`.
@@ -62,7 +63,7 @@ v0.2 additions (implemented in the app and firmware):
   ]
 }
 ```
-`channel` is the PCA9685 output. `enabled: false` = not wired yet. Calibrate min/max on the real servo (Setup tab in the app).
+`channel` is the PCA9685 output. Optional `"reverse": true` means the servo is mounted the other way round, so Teach mode's "up/bend/left" goes to the smaller angle. Only the app uses it. `enabled: false` = not wired yet. Calibrate min/max on the real servo (Setup tab in the app).
 
 ## Training record (`/training/robot_profile.json`)
 ```json

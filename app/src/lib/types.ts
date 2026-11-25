@@ -10,6 +10,11 @@ export interface Joint {
   home_angle: number; // resting pose
   max_speed_dps: number; // degrees per second at 100% speed
   enabled: boolean; // false = not wired yet; skills may not use it
+  /**
+   * Teach mode direction: normally a bigger angle = up (shoulder), bent (elbow),
+   * left (head). Set true if this servo is mounted the other way round.
+   */
+  reverse?: boolean;
 }
 
 export interface MechProfile {
@@ -34,6 +39,8 @@ export interface Skill {
   stat?: StatName;
   repeat?: number; // play the step list this many times (default 1)
   duration_ms?: number; // informational; computed by the app
+  /** Set when this skill was built as a combo of other skills (their ids, in order). */
+  combo?: string[];
   steps: SkillStep[];
 }
 

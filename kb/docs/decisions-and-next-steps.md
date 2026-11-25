@@ -15,6 +15,8 @@
 - Voice v0: phone keyboard dictation + local keyword matching. Cloud AI later.
 - Robot Wi-Fi is not compiled into the firmware. It's stored on the S3 and set through a setup hotspot (MechaKin-001, QR codes on the display) or from the app.
 - The display shows the robot's personality: eyes with pupils (gaze, blink) and a mouth. Eye style and face colour are per mode (Friendly = cyan/happy, Gaming = orange/focused).
+- Teaching makes data, not code: moves taught by the child are saved as skill files. Teach mode v1 works without AI (fixed words + buttons, offline, no child data leaves the phone). AI comes later, only to turn free sentences into the same commands.
+- Parked idea (after AI action generation): companion voice chat, push-to-talk, the creature's own voice, memory with parental consent. Don't clone the child's voice.
 - The movement board enforces all safety limits itself and keeps its own copy of the joint limits, so it stays safe even if the S3 or Wi-Fi fails.
 
 ## Open decisions
@@ -36,6 +38,7 @@ The full loop already worked on 2026-11-23 (`trial-1-test-log.md`). Since then, 
 4. Calibrate the servos in the app (Setup tab): horns off, find safe min/max, upload the profile.
 5. Cardboard arm/head mock-up: test Wave, Nod, Dance.
 6. Try training (Train tab) and confirm the updated skill files land on the robot (Robot tab → List files).
+6b. Try Teach mode on the real arm: teach "jab" (guard → punch → guard), save it, build a combo, and train it. If "raise hand" goes down, switch on "Reversed" for that joint in Setup.
 7. Then the speaker (MAX98357A already wired on GPIO5/6/7; firmware not written yet), later the SD card. Optional: PCA9685 OE → GPIO4 for a hardware stop.
 
 ## Later roadmap
@@ -52,3 +55,4 @@ Digital twin + validation -> JSON movement engine -> Android app -> AI action ge
 - 2026-11-24: Both boards flashed and the UART link confirmed working (first real compile: no errors). Display face v2: eyes with irises/pupils (gaze + blink) and mouth; per-mode face colour (`display.color`). Setup mode shows QR codes on screen (join hotspot, open setup page).
 - 2026-11-25: KB brought up to date: status, current step, trial-1 progress, parts confirmed (ESP32-S3 with 8 MB PSRAM + ESP32 with CP2102), new `dev-setup.md` (tools, ports, build/flash commands, gotchas).
 - 2026-11-25: GitHub had 4 zero-filled files from the 2026-11-23 corrupted-disk session. Merged, keeping intact local copies plus the test log. The lost movement change (PCA9685 detection, replies to typed commands) was rewritten as move-0.2.1.
+- 2026-11-25: Teach mode v1 (no AI) replaces the Control tab. Teach a move with words or buttons, correct it, keep poses, make it faster or slower, save it, build combos. Joint `reverse` flag added. 10 new tests.

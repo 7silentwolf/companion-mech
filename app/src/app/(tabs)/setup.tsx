@@ -106,6 +106,10 @@ export default function SetupScreen() {
           }
         >
           <Row>
+            <Muted>Reversed (Teach "up" moves this joint down)</Muted>
+            <Switch value={!!j.reverse} onValueChange={(v) => setJoint(i, { reverse: v || undefined })} />
+          </Row>
+          <Row>
             <Field label="Channel" value={String(j.channel)} keyboardType="number-pad" onChangeText={(t) => setJoint(i, { channel: num(t, j.channel) })} />
             <Field label="Max °/s" value={String(j.max_speed_dps)} keyboardType="number-pad" onChangeText={(t) => setJoint(i, { max_speed_dps: num(t, j.max_speed_dps) })} />
           </Row>

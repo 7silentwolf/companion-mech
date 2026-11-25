@@ -79,6 +79,7 @@ export default function SkillEditor() {
     <Screen>
       <Stack.Screen options={{ title: draft.name ?? draft.skill_id }} />
       <Card title="Details">
+        {draft.combo?.length ? <Muted>Combo of: {draft.combo.join(' → ')} (a copy: editing those moves later won't change this combo)</Muted> : null}
         <Row>
           <Field label="Name" value={draft.name ?? ''} onChangeText={(t) => setDraft({ ...draft, name: t })} />
           <Field label="skill_id" value={idText} onChangeText={setIdText} autoCapitalize="none" />

@@ -6,7 +6,7 @@ The phone is the robot's brain and microphone. This app connects to the robot ov
 | Tab | What it does |
 |---|---|
 | **Robot** | Connect, pick a mode, talk to the robot (type, or dictate with the keyboard mic), quick-play skills, display (eyes) test, movement-board warning, sync files to the robot, log |
-| **Control** | Live sliders per joint, Home, record poses into a new skill |
+| **Teach** | Teach a move with words or buttons ("raise right hand", "a bit lower", "good", "faster", "play it", "save as jab"), fine-tune sliders, and combos ("combo jab jab cross"). No AI: fixed words, works offline |
 | **Skills** | Skill library. Editor: steps, simultaneous moves, repeat, limit check, auto-fix, play, upload, JSON import/export |
 | **Train** | Practice a skill, rate it 1-5 stars. The skill is tuned within safe limits, level/XP/stats update and get saved to the robot |
 | **Setup** | Digital twin: joints, channels, min/home/max, speed, calibration test buttons. Mode speed limits, eyes and allowed skills. Robot Wi-Fi. Robot ID |
@@ -47,14 +47,16 @@ npm run typecheck
 ```
 
 ## Code map
-- `src/app/`: screens (Expo Router). `(tabs)/` holds the five tabs, `skill/[id].tsx` the skill editor
+- `src/app/`: screens (Expo Router). `(tabs)/` holds the five tabs (Robot, Teach, Skills, Train, Setup), `skill/[id].tsx` the skill editor
+- `src/lib/teach.ts`: Teach mode: word understanding, pose corrections, undo, faster/slower, saving moves and combos (unit-tested in `teach.test.ts`)
 - `src/lib/engine.ts`: pure logic (validation against the digital twin, timeline, auto-fix, training, command parsing), unit-tested
 - `src/lib/robot.tsx`: WebSocket client, acks, heartbeat, E-STOP
 - `src/lib/store.tsx`: app data saved on the phone (AsyncStorage)
 - `src/lib/defaults.ts`: starting profile (head + right arm, left arm disabled), skills (wave, nod, dance) and modes (friendly, gaming)
 
 ## Known limits (v0.1)
-- Voice uses the keyboard's dictation and simple keyword matching (wave/hello, nod/yes, dance, stop, "gaming mode"). Cloud AI action generation comes later.
+- Voice uses the keyboard's dictation and simple keyword matching (wave/hello, nod/yes, dance, stop, "gaming mode"; Teach-mode words in `src/lib/teach.ts`). Cloud AI action generation comes later.
+- Combos are copies: editing a move later doesn't update combos that used it.
 - Robot speed is constant within a move (no acceleration curves yet).
 - Display shows eyes + status only. No sound yet (no speaker in the first test).
 - A standalone APK build (outside Expo Go) needs cleartext `ws://` allowed. Add `expo-build-properties` with `android.usesCleartextTraffic: true` when you get there.

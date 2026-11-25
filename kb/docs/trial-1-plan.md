@@ -21,6 +21,14 @@ phone app -> robot -> modes from storage -> display + sound -> training that cha
 3. The new version is saved to the robot's storage, so it performs better next time.
 4. For custom moves the child can pose/record a sequence, and AI can generate variations. They are saved the same way.
 
+## Teach mode (v1, 2026-11-25, no AI)
+The child teaches a move step by step, and the app saves it as a skill file (data, not code). The firmware plays it like any skill and still enforces its limits.
+- Words or buttons: "raise right hand", "not too high", "a bit lower", "bend elbow", "straighten", "punch", "guard", "look left", "elbow to 60 degrees", "more".
+- The robot moves on every correction (clamped to the joint limits). "Good" keeps the pose as the next step. "Undo", "faster"/"slower" (never past the mode's speed limit), "play it", "save as jab".
+- Combos: "combo jab jab cross" (or tap the moves) joins saved moves into one skill.
+- Saved moves join every mode, are uploaded to the robot, and can be trained with stars.
+- Later: AI only translates free sentences into these same commands (roadmap: AI action generation).
+
 ## Build order
 1. Servo moves via PCA9685 with e-stop (movement controller) -> see `step-1-servo-test.md`
 2. Movement controller plays a movement file from storage
@@ -35,7 +43,7 @@ phone app -> robot -> modes from storage -> display + sound -> training that cha
 | 2. Movement files from storage | Done: skills/modes/profile live in the S3's LittleFS. The movement board keeps its own copy of the joint limits |
 | 3. S3 ↔ phone over Wi-Fi/WebSocket | Done and tested 2026-11-23 (connect, sync, control, skills, STOP). Wi-Fi now set by setup hotspot/QR |
 | 4. Display, then speaker | Display tested 2026-11-23; face v2 + setup QR added 2026-11-24. Speaker: amp wired on GPIO5/6/7, no speaker or firmware yet |
-| 5. Modes, then training updating saved files | Done in app and firmware. Training on the real robot still to test |
+| 5. Modes, then training updating saved files | Done in app and firmware, plus Teach mode v1 (teach moves and combos by words). Training and Teach on the real robot still to test |
 
 Not in the first test: speaker/amp audio, microSD (sounds, training history). Storage uses the S3's internal flash for now.
 

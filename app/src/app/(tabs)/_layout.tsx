@@ -19,7 +19,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Robot', tabBarIcon: icon('◉') }} />
-      <Tabs.Screen name="control" options={{ title: 'Control', tabBarIcon: icon('✥') }} />
+      <Tabs.Screen name="teach" options={{ title: 'Teach', tabBarIcon: icon('✋') }} />
       <Tabs.Screen name="skills" options={{ title: 'Skills', tabBarIcon: icon('☰') }} />
       <Tabs.Screen name="train" options={{ title: 'Train', tabBarIcon: icon('★') }} />
       <Tabs.Screen name="setup" options={{ title: 'Setup', tabBarIcon: icon('⚙') }} />
