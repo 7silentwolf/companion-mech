@@ -11,6 +11,7 @@ import {
   applyTeachCommand,
   buildCombo,
   buildTaughtSkill,
+  comboSkill,
   countPoses,
   HELP,
   initialTeachState,
@@ -83,6 +84,7 @@ export default function TeachScreen() {
   const [moveName, setMoveName] = useState('');
   const [comboParts, setComboParts] = useState<string[]>([]);
   const [comboName, setComboName] = useState('');
+  const [comboSpeed, setComboSpeed] = useState(1); // < 1 faster, > 1 slower
   const [drag, setDrag] = useState<Record<string, number>>({});
   const lastSent = useRef<Record<string, number>>({});
 
@@ -130,7 +132,7 @@ export default function TeachScreen() {
   };
 
   const saveMove = async (name: string) => {
-    const r = buildTaughtSkill(name, state.steps, data.profile, activeMode, data.skills);
+    const r = buildTaughtSkill(name, state.steps, data.profile, activeMode, data.skills, state.startPose);
     if (!r.skill) return say({ who: 'robot', text: r.error!, ok: false });
     saveSkill(r.skill);
     robot.send({ type: 'react', event: 'taught' });
@@ -141,7 +143,7 @@ export default function TeachScreen() {
   };
 
   const saveCombo = async (name: string, parts: string[]) => {
-    const r = buildCombo(name, parts, data.skills, data.profile, activeMode);
+    const r = buildCombo(name, parts, data.skills, data.profile, activeMode, comboSpeed);
     if (!r.skill) return say({ who: 'robot', text: r.error!, ok: false });
     saveSkill(r.skill);
     robot.send({ type: 'react', event: 'taught' });
@@ -149,13 +151,42 @@ export default function TeachScreen() {
     say({ who: 'robot', text: `Saved combo "${r.skill.name}" (${parts.join(' → ')}).${where}`, ok: true });
     setComboParts([]);
     setComboName('');
+    setComboSpeed(1);
+  };
+
+  const comboPreview = (speed = comboSpeed) =>
+    comboSkill('combo_preview', 'Combo preview', comboParts, data.skills, data.profile, activeMode, speed);
+
+  const playCombo = () => {
+    const r = comboPreview();
+    if (!r.skill) return say({ who: 'robot', text: r.error!, ok: false });
+    if (!connected) return say({ who: 'robot', text: 'Connect to the robot to play the combo.', ok: false });
+    robot.play(r.skill).catch((e: any) => say({ who: 'robot', text: `Couldn't play: ${e?.message ?? e}`, ok: false }));
+    say({ who: 'robot', text: `Playing combo ${comboParts.join(' → ')} (${(skillDurationMs(r.skill) / 1000).toFixed(1)} s).`, ok: true });
+  };
+
+  const comboTempo = (factor: number) => {
+    const next = Math.min(2.5, Math.max(0.4, comboSpeed * factor));
+    const before = comboPreview(comboSpeed).skill;
+    const after = comboPreview(next).skill;
+    if (!after || !before) return say({ who: 'robot', text: 'Add at least two moves to the combo first.', ok: false });
+    if (skillDurationMs(after) === skillDurationMs(before)) {
+      return say({ who: 'robot', text: factor < 1 ? "The combo is as fast as this mode allows." : "The combo is as slow as it goes.", ok: false });
+    }
+    setComboSpeed(next);
+    say({ who: 'robot', text: `Combo ${factor < 1 ? 'faster' : 'slower'}: ${(skillDurationMs(after) / 1000).toFixed(1)} s. Say "play it" to see.`, ok: true });
   };
 
   const run = (text: string) => {
     const t = text.trim();
     if (!t) return;
     say({ who: 'you', text: t });
+    if (/^play( the)? combo$/i.test(t)) return playCombo();
     const cmd: TeachCommand = parseTeachCommand(t, data.skills);
+    // While a combo is being built (and no new move is being taught), play/faster/slower act on the combo.
+    const comboPending = comboParts.length >= 2 && state.steps.length === 0;
+    if (comboPending && cmd.kind === 'play') return playCombo();
+    if (comboPending && cmd.kind === 'speed') return comboTempo(cmd.factor);
     if (cmd.kind === 'save') {
       const name = cmd.name ?? moveName.trim();
       if (!name) return say({ who: 'robot', text: 'What should it be called? Say "save as jab", or type a name below.', ok: false });
@@ -180,7 +211,8 @@ export default function TeachScreen() {
   };
 
   const poses = describeSteps(state.steps);
-  const previewMs = state.steps.length ? skillDurationMs(teachSkill(state.steps, data.profile, activeMode)) : 0;
+  const previewMs = state.steps.length ? skillDurationMs(teachSkill(state.steps, data.profile, activeMode, 'p', 'p', state.startPose)) : 0;
+  const comboMs = comboParts.length >= 2 ? (comboPreview().skill ? skillDurationMs(comboPreview().skill!) : 0) : 0;
   const lastReply = log.find((l) => l.who === 'robot');
 
   return (
@@ -266,7 +298,7 @@ export default function TeachScreen() {
       </Card>
 
       <Card title="Combo">
-        <Muted>Tap saved moves in order, or say "combo jab jab cross".</Muted>
+        <Muted>Tap saved moves in order, or say "combo jab jab cross". Then Play / Faster / Slower before saving.</Muted>
         <Row style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
           {data.skills.map((s) => (
             <Chip key={s.skill_id} label={`+ ${s.name ?? s.skill_id}`} onPress={() => setComboParts((p) => [...p, s.skill_id])} />
@@ -283,13 +315,33 @@ export default function TeachScreen() {
                 </Pressable>
               ))}
             </Row>
+            {comboParts.length >= 2 ? (
+              <>
+                <Muted>
+                  Speed {Math.round(100 / comboSpeed)}%{comboMs ? ` · ${(comboMs / 1000).toFixed(1)} s` : ''}
+                </Muted>
+                <Row style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+                  <Button small label="▶ Play combo" onPress={playCombo} />
+                  <Button small label="Faster" variant="secondary" onPress={() => run('faster')} />
+                  <Button small label="Slower" variant="secondary" onPress={() => run('slower')} />
+                </Row>
+              </>
+            ) : null}
             <Row>
               <View style={{ flex: 1 }}>
                 <Field label="Combo name" value={comboName} onChangeText={setComboName} placeholder="one two" />
               </View>
               <Button label="Save combo" variant="good" onPress={() => saveCombo(comboName, comboParts)} disabled={!comboName.trim() || comboParts.length < 2} />
             </Row>
-            <Button small label="Clear combo" variant="secondary" onPress={() => setComboParts([])} />
+            <Button
+              small
+              label="Clear combo"
+              variant="secondary"
+              onPress={() => {
+                setComboParts([]);
+                setComboSpeed(1);
+              }}
+            />
           </>
         ) : null}
       </Card>

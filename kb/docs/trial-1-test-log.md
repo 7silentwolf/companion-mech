@@ -38,3 +38,13 @@ The laptop's main disk (`/dev/sda2`, ext4) showed spreading filesystem corruptio
 
 ## Note (2026-11-25)
 Firmware changed after session 1: comms-0.4.0 (Wi-Fi saved on the board with a setup QR/hotspot, so `wifi_config.h` is no longer needed; face with pupils and mouth; colour per mode) and move-0.2.1. The "next session" list above still applies. The updated order is in `decisions-and-next-steps.md` → Current step.
+
+## Session 2: 2026-11-26, Teach mode on the real robot
+Firmware comms-0.5.0 + move-0.3.0 (flashed and confirmed over Wi-Fi). App: Teach tab via Expo Go.
+- Worked: motors follow teach commands live, undo.
+- Bug: a saved move "says playing but motors don't move". Cause: a taught move only stored the joints that changed, so playing it while the robot already sat in that pose changed nothing (`test1` was a one-pose move). Confirmed on the robot: the firmware plays skills fine (Wave log: shoulder 132→140→90). **Fix:** taught moves start with a "get ready" step (all joints to the start pose).
+- Bug: faster/slower seemed to do nothing. They only changed the last step. **Fix:** they change the whole move, or the whole combo.
+- Missing: playing a combo before saving. **Added:** Play combo, Faster, Slower (buttons, and "play it"/"faster"/"slower" while a combo is being built).
+- Note: `test1` on the robot was made before the fix and has no get-ready step. Delete it and teach it again.
+- The robot was left in E-STOP (app STOP) at the end of the session. Release it from the app with the robot in view.
+

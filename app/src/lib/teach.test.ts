@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_MODES, DEFAULT_PROFILE, DEFAULT_SKILLS } from './defaults.ts';
-import { validateSkill } from './engine.ts';
+import { skillDurationMs, validateSkill } from './engine.ts';
 import {
   applyTeachCommand,
   buildCombo,
+  comboSkill,
   buildTaughtSkill,
   countPoses,
   initialTeachState,
@@ -135,4 +136,51 @@ test('combos join saved moves and stay within limits', () => {
 
 test('names must be new', () => {
   assert.match(buildTaughtSkill('Wave', [{ joint: 'head', target_angle: 80, duration_ms: 500 }], P, friendly, DEFAULT_SKILLS).error!, /already exists/);
+});
+
+test('a saved one-pose move still moves when the robot is already in that pose', () => {
+  // Reported bug: "says playing but motors are not moving".
+  const { state } = teach(['raise right hand', 'good']);
+  const saved = buildTaughtSkill('test1', state.steps, P, friendly, DEFAULT_SKILLS, state.startPose).skill!;
+  // The robot ends teaching with the arm raised (143). Playing must first bring every
+  // joint to the start pose (rest), then raise the arm again.
+  const first = saved.steps.filter((st, i) => i === 0 || st.with_previous);
+  assert.deepEqual(
+    first.map((st) => [st.joint, st.target_angle]),
+    [['head', 90], ['right_shoulder', 90], ['right_elbow', 90]],
+  );
+  assert.deepEqual(saved.steps.at(-1)!.target_angle, 143);
+  assert.deepEqual(validateSkill(saved, P, friendly).errors, []);
+});
+
+test('play it starts with the get-ready step too', () => {
+  const r = teach(['guard', 'good', 'punch', 'good', 'play it']).results[4];
+  assert.ok(r.play);
+  assert.equal(r.play!.steps[0].target_angle, 90);
+  assert.equal(r.play!.steps.length, 3 + teach(['guard', 'good', 'punch', 'good']).state.steps.length);
+});
+
+test('faster / slower change the whole move', () => {
+  const base = teach(['raise right hand', 'good', 'bend elbow', 'good']).state;
+  const dur = (st: TeachState) => st.steps.reduce((a, x) => a + x.duration_ms, 0);
+  const slower = applyTeachCommand(base, { kind: 'speed', factor: 1.33 }, P, friendly);
+  assert.ok(slower.ok, slower.message);
+  // every step got slower, not just the last one
+  slower.state.steps.forEach((st, i) => assert.ok(st.duration_ms > base.steps[i].duration_ms, `step ${i}`));
+  assert.ok(dur(slower.state) > dur(base));
+  assert.match(slower.message, /Whole move slower/);
+});
+
+test('a combo can be previewed and its speed changed before saving', () => {
+  const jabSteps = teach(['guard', 'good', 'punch', 'good', 'guard', 'good']).state.steps;
+  const jab = buildTaughtSkill('jab', jabSteps, P, friendly, DEFAULT_SKILLS).skill!;
+  const skills = [...DEFAULT_SKILLS, jab];
+  const normal = comboSkill('combo_preview', 'Combo preview', ['jab', 'wave'], skills, P, friendly, 1).skill!;
+  const slow = comboSkill('combo_preview', 'Combo preview', ['jab', 'wave'], skills, P, friendly, 1.6).skill!;
+  const fast = comboSkill('combo_preview', 'Combo preview', ['jab', 'wave'], skills, P, friendly, 0.5).skill!;
+  assert.ok(skillDurationMs(slow) > skillDurationMs(normal));
+  assert.ok(skillDurationMs(fast) <= skillDurationMs(normal));
+  for (const sk of [normal, slow, fast]) assert.deepEqual(validateSkill(sk, P, friendly).errors, []);
+  const saved = buildCombo('jw', ['jab', 'wave'], skills, P, friendly, 1.6).skill!;
+  assert.equal(skillDurationMs(saved), skillDurationMs(slow));
 });

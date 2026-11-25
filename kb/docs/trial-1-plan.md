@@ -25,7 +25,9 @@ phone app -> robot -> modes from storage -> display + sound -> training that cha
 The child teaches a move step by step, and the app saves it as a skill file (data, not code). The firmware plays it like any skill and still enforces its limits.
 - Words or buttons: "raise right hand", "not too high", "a bit lower", "bend elbow", "straighten", "punch", "guard", "look left", "elbow to 60 degrees", "more".
 - The robot moves on every correction (clamped to the joint limits). "Good" keeps the pose as the next step. "Undo", "faster"/"slower" (never past the mode's speed limit), "play it", "save as jab".
-- Combos: "combo jab jab cross" (or tap the moves) joins saved moves into one skill.
+- Every taught move starts with a "get ready" step: all joints go to the pose where teaching began, so the move plays the same from anywhere. Without it, a move played while the robot already sat in its pose did nothing (found in testing, 2026-11-26).
+- "Faster"/"slower" change the whole move (or the whole combo while one is being built).
+- Combos: "combo jab jab cross" (or tap the moves) joins saved moves into one skill. Before saving: Play combo, Faster, Slower.
 - Saved moves join every mode, are uploaded to the robot, and can be trained with stars.
 - Later: AI only translates free sentences into these same commands (roadmap: AI action generation).
 

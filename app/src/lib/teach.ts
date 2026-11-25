@@ -4,7 +4,7 @@
 //
 // Safety: every pose is clamped to the joint limits here, every saved skill goes
 // through autoFix/validateSkill, and the robot enforces its own limits again.
-import { autoFix, jointMap, MAX_STEPS, poseToSteps, skillDurationMs, validateSkill } from './engine.ts';
+import { allowedSpeed, autoFix, jointMap, MAX_STEP_MS, MAX_STEPS, poseToSteps, skillDurationMs, validateSkill } from './engine.ts';
 import type { Joint, MechProfile, Mode, Skill, SkillStep } from './types';
 
 export type Pose = Record<string, number>;
@@ -12,6 +12,7 @@ type Side = 'right' | 'left';
 type Part = 'head' | 'shoulder' | 'elbow';
 
 export interface TeachSnapshot {
+  startPose: Pose; // where this move starts ("get ready" pose: rest, or where teaching began)
   pose: Pose; // what the robot is showing now
   lastPose: Pose; // pose at the last "good" (start: home)
   steps: SkillStep[]; // taught so far
@@ -223,7 +224,7 @@ export function homePose(profile: MechProfile): Pose {
 
 export function initialTeachState(profile: MechProfile): TeachState {
   const home = homePose(profile);
-  return { pose: home, lastPose: { ...home }, steps: [], side: 'right', undo: [] };
+  return { startPose: { ...home }, pose: home, lastPose: { ...home }, steps: [], side: 'right', undo: [] };
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -250,7 +251,7 @@ function resolveJoint(profile: MechProfile, part: Part, side: Side): { joint?: J
 
 function snapshot(s: TeachState): TeachSnapshot {
   const { undo: _undo, ...rest } = s;
-  return { ...rest, pose: { ...rest.pose }, lastPose: { ...rest.lastPose }, steps: [...rest.steps] };
+  return { ...rest, startPose: { ...rest.startPose }, pose: { ...rest.pose }, lastPose: { ...rest.lastPose }, steps: [...rest.steps] };
 }
 
 function withUndo(s: TeachState): TeachState {
@@ -283,9 +284,43 @@ function moveTo(s: TeachState, next: Pose, profile: MechProfile, message: string
   return { state, message: hitLimit ? `${message} (stopped at the safe limit)` : message, send, ok: true };
 }
 
-/** Steps of the taught move as a playable, limit-checked skill. */
-export function teachSkill(steps: SkillStep[], profile: MechProfile, mode?: Mode, id = 'teach_preview', name = 'Teach preview'): Skill {
-  return autoFix({ skill_id: id, name, version: 1, stat: 'agility', steps }, profile, mode);
+/**
+ * "Get ready" step: every wired joint goes to the start pose, slowly enough to
+ * get there from anywhere. Without it a move would only list the joints that
+ * changed, and playing it while the robot already sits in that pose would do nothing.
+ */
+export function readySteps(startPose: Pose, profile: MechProfile, mode?: Mode): SkillStep[] {
+  const joints = profile.joints.filter((j) => j.enabled && startPose[j.name] !== undefined);
+  let ms = 300;
+  for (const j of joints) {
+    const far = Math.max(Math.abs(j.max_angle - startPose[j.name]), Math.abs(startPose[j.name] - j.min_angle));
+    ms = Math.max(ms, Math.ceil(((far / allowedSpeed(j, mode)) * 1000) / 10) * 10);
+  }
+  return joints.map((j, i) => ({
+    joint: j.name,
+    target_angle: Math.round(startPose[j.name]),
+    duration_ms: Math.min(ms, MAX_STEP_MS),
+    ...(i > 0 ? { with_previous: true } : {}),
+  }));
+}
+
+/** Steps of the taught move as a playable, limit-checked skill (with the "get ready" step first). */
+export function teachSkill(
+  steps: SkillStep[],
+  profile: MechProfile,
+  mode?: Mode,
+  id = 'teach_preview',
+  name = 'Teach preview',
+  startPose?: Pose,
+): Skill {
+  const all = startPose ? [...readySteps(startPose, profile, mode), ...steps] : steps;
+  return autoFix({ skill_id: id, name, version: 1, stat: 'agility', steps: all }, profile, mode);
+}
+
+/** Make every step slower (factor > 1) or faster (< 1). Never faster than the limits allow. */
+export function scaleSpeed(steps: SkillStep[], factor: number, profile: MechProfile, mode?: Mode): SkillStep[] {
+  const scaled = steps.map((st) => ({ ...st, duration_ms: Math.round(st.duration_ms * factor) }));
+  return autoFix({ skill_id: 'scaled', version: 1, steps: scaled }, profile, mode).steps;
 }
 
 export function applyTeachCommand(state: TeachState, cmd: TeachCommand, profile: MechProfile, mode?: Mode): TeachResult {
@@ -410,16 +445,15 @@ export function applyTeachCommand(state: TeachState, cmd: TeachCommand, profile:
     }
 
     case 'speed': {
-      const g = s.lastGroup;
-      if (!g) return fail('Keep a step first (say "good"), then make it faster or slower.');
-      const steps = s.steps.map((st, i) => (i >= g.start && i < g.end ? { ...st, duration_ms: Math.round(st.duration_ms * cmd.factor) } : st));
-      const fixed = teachSkill(steps, profile, mode).steps;
-      const before = s.steps.slice(g.start, g.end).reduce((a, st) => a + st.duration_ms, 0);
-      const after = fixed.slice(g.start, g.end).reduce((a, st) => a + st.duration_ms, 0);
+      // The whole move gets faster or slower.
+      if (s.steps.length === 0) return fail('Teach a step first (say "good"), then make the move faster or slower.');
+      const fixed = scaleSpeed(s.steps, cmd.factor, profile, mode);
+      const before = skillDurationMs({ skill_id: 'x', version: 1, steps: s.steps });
+      const after = skillDurationMs({ skill_id: 'x', version: 1, steps: fixed });
       if (after === before) return fail(cmd.factor < 1 ? "That's as fast as this mode allows." : "That's already as slow as it goes.");
       return {
         state: { ...withUndo(s), steps: fixed },
-        message: `Last step now ${after} ms (was ${before} ms).`,
+        message: `Whole move ${cmd.factor < 1 ? 'faster' : 'slower'}: ${(after / 1000).toFixed(1)} s (was ${(before / 1000).toFixed(1)} s). Say "play it" to see.`,
         send: [],
         ok: true,
       };
@@ -427,7 +461,7 @@ export function applyTeachCommand(state: TeachState, cmd: TeachCommand, profile:
 
     case 'play': {
       if (s.steps.length === 0) return fail('Nothing taught yet. Pose the robot and say "good" to keep a step.');
-      const skill = teachSkill(s.steps, profile, mode);
+      const skill = teachSkill(s.steps, profile, mode, 'teach_preview', 'Teach preview', s.startPose);
       const v = validateSkill(skill, profile, mode);
       if (!v.ok) return fail(`Can't play it: ${v.errors[0].message}`);
       // After playing, the robot ends at the last kept pose.
@@ -468,12 +502,20 @@ export function makeSkillId(name: string): string {
 }
 
 /** Build the taught move as a skill ready to save. */
-export function buildTaughtSkill(name: string, steps: SkillStep[], profile: MechProfile, mode: Mode | undefined, existing: Skill[]): { skill?: Skill; error?: string } {
+export function buildTaughtSkill(
+  name: string,
+  steps: SkillStep[],
+  profile: MechProfile,
+  mode: Mode | undefined,
+  existing: Skill[],
+  startPose: Pose = homePose(profile),
+): { skill?: Skill; error?: string } {
   const id = makeSkillId(name);
   if (!id) return { error: 'Give the move a name, e.g. "save as jab".' };
   if (existing.some((s) => s.skill_id === id)) return { error: `A move called "${id}" already exists. Pick another name.` };
   if (steps.length === 0) return { error: 'Nothing taught yet.' };
-  const skill = teachSkill(steps, profile, mode, id, name.trim());
+  if (steps.length + Object.keys(startPose).length > MAX_STEPS) return { error: `A move can have at most ${MAX_STEPS} steps.` };
+  const skill = teachSkill(steps, profile, mode, id, name.trim(), startPose);
   const v = validateSkill(skill, profile, mode);
   if (!v.ok) return { error: v.errors[0].message };
   return { skill: { ...skill, version: 1 } };
@@ -484,10 +526,16 @@ export function buildTaughtSkill(name: string, steps: SkillStep[], profile: Mech
  * (its repeats expanded) and the whole thing is limit-checked; the transitions
  * between parts are slowed down if needed.
  */
-export function buildCombo(name: string, partIds: string[], skills: Skill[], profile: MechProfile, mode: Mode | undefined): { skill?: Skill; error?: string } {
-  const id = makeSkillId(name);
-  if (!id) return { error: 'Give the combo a name.' };
-  if (skills.some((s) => s.skill_id === id)) return { error: `A move called "${id}" already exists. Pick another name.` };
+/** The moves of a combo joined into one step list (repeats expanded), at a speed factor. */
+export function comboSkill(
+  id: string,
+  name: string,
+  partIds: string[],
+  skills: Skill[],
+  profile: MechProfile,
+  mode: Mode | undefined,
+  speed = 1,
+): { skill?: Skill; error?: string } {
   if (partIds.length < 2) return { error: 'A combo needs at least two moves.' };
   const steps: SkillStep[] = [];
   for (const pid of partIds) {
@@ -498,8 +546,28 @@ export function buildCombo(name: string, partIds: string[], skills: Skill[], pro
     }
   }
   if (steps.length > MAX_STEPS) return { error: `That combo has ${steps.length} steps; the limit is ${MAX_STEPS}. Use fewer or shorter moves.` };
-  const skill: Skill = { ...teachSkill(steps, profile, mode, id, name.trim()), combo: [...partIds] };
+  const timed = speed === 1 ? steps : scaleSpeed(steps, speed, profile, mode);
+  const skill: Skill = { ...teachSkill(timed, profile, mode, id, name), combo: [...partIds] };
   const v = validateSkill(skill, profile, mode);
   if (!v.ok) return { error: v.errors[0].message };
   return { skill };
+}
+
+/**
+ * Join saved moves into one skill: "combo jab jab cross". Each part is copied in
+ * (its repeats expanded) and the whole thing is limit-checked; the transitions
+ * between parts are slowed down if needed. speed < 1 = faster, > 1 = slower.
+ */
+export function buildCombo(
+  name: string,
+  partIds: string[],
+  skills: Skill[],
+  profile: MechProfile,
+  mode: Mode | undefined,
+  speed = 1,
+): { skill?: Skill; error?: string } {
+  const id = makeSkillId(name);
+  if (!id) return { error: 'Give the combo a name.' };
+  if (skills.some((s) => s.skill_id === id)) return { error: `A move called "${id}" already exists. Pick another name.` };
+  return comboSkill(id, name.trim(), partIds, skills, profile, mode, speed);
 }
