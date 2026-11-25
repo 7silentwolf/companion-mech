@@ -31,13 +31,15 @@ How the phone app talks to the robot. Implemented by `app/src/lib/robot.tsx` (ap
 | `set_mode` | `mode_id` | Load `/modes/<id>.json` (speed limit, allowed skills, eyes) |
 | `get_wifi` | | Ack carries `ssid`, `connected`, `setup_mode`, `ip` |
 | `set_wifi` | `ssid`, `pass` | Save new Wi-Fi (name 1-32 chars, password empty or 8-63), then the robot restarts and joins it |
+| `react` | `event` (`trained` + `score`, `level_up`; `taught`; `confused`), or `eyes` + `ms` | The robot shows a reaction (happy, sad, surprised, "LEVEL UP!") and updates its mood |
+| `set_alive` | `idle_life` (bool) | Switch idle life on or off (saved on the robot) |
 | `set_eyes` | `eyes` | Show an eye style on the display until the next mode change (`happy`, `normal`, `focused`, `sad`, `sleepy`) |
 
 ## Robot → app
 | type | fields |
 |---|---|
 | `hello` | `robot_id`, `fw`, `movement_fw`, `wifi` (network name, '' in setup mode), `proto`, `joints` (names) |
-| `status` | `state` (`idle`/`playing`/`estop`), `mode`, `skill`, `angles` {joint: deg}, `estop_button`, `movement_ok`, `eyes` |
+| `status` | `state` (`idle`/`playing`/`estop`), `mode`, `skill`, `angles` {joint: deg}, `estop_button`, `movement_ok`, `eyes` (the face shown now), `mood`, `energy` (0-100), `asleep`, `idle_life` |
 | `ack` | `id`, `ok`, `error?`, (`files` for list_files) |
 | `done` | `skill_id`: skill finished all repeats |
 | `event` | `name` (e.g. `estop_button`) |
@@ -66,6 +68,7 @@ S3 → movement, in addition to the forwarded messages:
 | `ping` | | Every 500 ms. Movement replies `status`. 1.5 s of silence stops a playing move |
 | `set_speed` | `pct` | Mode speed limit (movement default 60% until set) |
 | `set_profile` | `profile` | Joint limits. Movement saves its own copy to flash |
+| `set_joint` + `dps` | `joint`, `angle`, `dps` | Optional slower speed (used for gentle idle glances). Never faster than the limit (move-0.3+) |
 
 Movement → S3: `status` (on change, every 200 ms while playing, and per ping), `ack`, `done`, `event`, `error`, `hello` (also sent on boot, and the S3 then re-sends the profile and speed). The S3 adds `mode`, `movement_ok` and `eyes` before passing `status` to the app.
 

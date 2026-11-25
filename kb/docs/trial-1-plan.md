@@ -29,6 +29,9 @@ The child teaches a move step by step, and the app saves it as a skill file (dat
 - Saved moves join every mode, are uploaded to the robot, and can be trained with stars.
 - Later: AI only translates free sentences into these same commands (roadmap: AI action generation).
 
+## Feeling alive (2026-11-25)
+The robot shows life on its own: it looks around, yawns and sleeps when left alone, wakes up when someone comes, reacts to training and teaching, and keeps a mood and energy level. All on the robot. Details in `firmware/README.md` → Alive.
+
 ## Build order
 1. Servo moves via PCA9685 with e-stop (movement controller) -> see `step-1-servo-test.md`
 2. Movement controller plays a movement file from storage

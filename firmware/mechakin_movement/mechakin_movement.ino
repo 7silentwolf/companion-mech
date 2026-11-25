@@ -16,7 +16,7 @@
 #include <ArduinoJson.h>
 
 // ---------------- Settings ----------------
-#define FW_VERSION "move-0.2.1"
+#define FW_VERSION "move-0.3.0"
 #define PIN_SDA 21
 #define PIN_SCL 22
 #define PIN_ESTOP 27     // button between GPIO27 and GND
@@ -335,7 +335,8 @@ void handleLine(Stream &out, const char *line, size_t len) {
     else {
       if (runState == RUN_PLAYING) stopMotion();
       targetA[j] = clampf(msg["angle"] | angleNow[j], joints[j].minA, joints[j].maxA);
-      moveDps[j] = jointLimitDps(j);
+      // Optional "dps": move slower than the limit (e.g. gentle idle glances). Never faster.
+      moveDps[j] = min(jointLimitDps(j), clampf(msg["dps"] | 1000.0f, 1, HARD_MAX_DPS));
       limp[j] = false;
     }
   } else if (strcmp(type, "play") == 0) {

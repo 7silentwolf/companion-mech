@@ -37,7 +37,7 @@
 #endif
 
 // ---------------- Settings ----------------
-#define FW_VERSION "comms-0.4.0"
+#define FW_VERSION "comms-0.5.0"
 #define PROTO_VERSION 1
 #define AP_SSID "MechaKin-001"
 #define AP_PASS "mechakin123"
@@ -82,6 +82,14 @@
 #define MOVEMENT_LOST_MS 2000
 #define APP_SILENCE_MS 3000
 
+// "Alive" behaviour (idle life, reactions, mood/energy)
+#define IDLE_START_MS 10000        // quiet this long -> idle life starts
+#define SLEEP_AFTER_MS 120000      // idle this long -> yawn and sleep
+#define SLEEP_AFTER_TIRED_MS 45000 // ...sooner when energy is low
+#define IDLE_GLANCE_DPS 35         // gentle head speed for idle glances
+#define IDLE_GLANCE_RANGE 25       // max degrees from home for idle glances
+#define MOOD_FLOOR 30              // mood never drops below this (no "dying pet")
+
 // ---------------- State ----------------
 WebSocketsServer ws(WS_PORT);
 HardwareSerial &Link = Serial1;  // UART1, pins set in setup()
@@ -95,9 +103,27 @@ float modeSpeedPct = 60;
 char allowed[MAX_ALLOWED][33];
 int allowedCount = -1;  // -1 = no list, everything allowed
 char modeEyes[16] = "happy";
+char modeIdleSkill[33] = "";  // the mode's idle_skill, played now and then by idle life
 uint16_t modeColor = 0x07FF;  // RGB565 colour of irises and mouth (from the mode's display.color)
 char eyesOverride[16] = "";
 String ipText = "";
+
+// Alive state
+char reactEyes[12] = "";       // timed expression from a reaction
+uint32_t reactUntil = 0;
+char reactNextEyes[12] = "";   // optional follow-up expression
+uint32_t reactNextMs = 0;
+char bannerText[20] = "";      // e.g. "LEVEL UP!" in the top line
+uint32_t bannerUntil = 0;
+bool asleep = false;
+bool idleLife = true;          // can be switched off from the app
+bool idlePlaying = false;      // the current skill was started by idle life
+bool headMovedByIdle = false;
+int mood = 70, energy = 80;    // 0-100, saved in flash
+uint32_t lastActivity = 0;
+bool aliveDirty = false;       // mood/energy changed: tell the app, save later
+bool moodBarsDirty = false;    // mood/energy bars need redrawing
+bool gazeNudged = false;       // idle life moved the eyes
 
 // Latest status from the movement board.
 char mvState[12] = "idle";
@@ -131,7 +157,14 @@ bool displayDirty = true;
 // ---------------- Helpers ----------------
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 bool movementOk() { return mvEverHeard && millis() - mvLastHeard < MOVEMENT_LOST_MS; }
-const char *currentEyes() { return eyesOverride[0] ? eyesOverride : modeEyes; }
+// Which face to show. Priority: reaction > sleep > display test > playing > mode.
+const char *currentEyes() {
+  if (reactEyes[0] && (int32_t)(millis() - reactUntil) < 0) return reactEyes;
+  if (asleep) return "sleepy";
+  if (eyesOverride[0]) return eyesOverride;
+  if (strcmp(mvState, "playing") == 0 && !idlePlaying) return "focused";
+  return modeEyes;
+}
 
 void sendJson(uint8_t num, JsonDocument &doc) {
   String out;
@@ -176,6 +209,10 @@ void fillStatus(JsonDocument &doc) {
   doc["estop_button"] = mvButton;
   doc["movement_ok"] = movementOk();
   doc["eyes"] = currentEyes();
+  doc["mood"] = mood;
+  doc["energy"] = energy;
+  doc["asleep"] = asleep;
+  doc["idle_life"] = idleLife;
 }
 
 void sendStatus(uint8_t num) {
@@ -258,6 +295,7 @@ bool loadMode(const char *id) {
   strlcpy(modeId, id, sizeof(modeId));
   modeSpeedPct = clampf(doc["limits"]["max_speed_pct"] | 60.0f, 1, 100);
   strlcpy(modeEyes, doc["display"]["eyes"] | "happy", sizeof(modeEyes));
+  strlcpy(modeIdleSkill, doc["idle_skill"] | "", sizeof(modeIdleSkill));
   modeColor = parseColor(doc["display"]["color"] | "", id);
   eyesOverride[0] = 0;
   JsonArrayConst list = doc["allowed_skills"].as<JsonArrayConst>();
@@ -388,7 +426,9 @@ void clearWifiCreds() {
   Serial.println("Forgot saved Wi-Fi");
 }
 
+void saveAlive();
 void scheduleRestart(uint32_t inMs) {
+  saveAlive();
   sendLinkType("stop");  // never restart in the middle of a move
   restartAt = millis() + inMs;
 }
@@ -554,7 +594,7 @@ uint8_t setupPage = 0;
 uint32_t nextSetupPageAt = 0;
 
 bool hasPupils(const char *style) {
-  return strcmp(style, "happy") != 0 && strcmp(style, "sleepy") != 0;
+  return strcmp(style, "happy") != 0 && strcmp(style, "sleepy") != 0 && strcmp(style, "yawn") != 0;
 }
 
 // Thick curve through the mouth: depth > 0 smiles, depth < 0 frowns.
@@ -569,8 +609,14 @@ void drawCurve(int cx, int cy, int halfW, int depth, uint16_t c) {
 void drawEye(int cx, int cy, const char *style, bool closed, bool left) {
   uint16_t c = modeColor;
   tft.fillRect(cx - 25, cy - 25, 50, 50, ST77XX_BLACK);
-  if (closed || strcmp(style, "sleepy") == 0) {
+  if (closed || strcmp(style, "sleepy") == 0 || strcmp(style, "yawn") == 0) {
     tft.fillRoundRect(cx - 18, cy - 2, 36, 5, 2, c);
+    return;
+  }
+  if (strcmp(style, "surprised") == 0) {  // wide eyes, tiny pupils
+    tft.fillCircle(cx, cy, SCLERA_R + 2, ST77XX_WHITE);
+    tft.fillCircle(cx + gazeX / 2, cy + gazeY / 2, 6, c);
+    tft.fillCircle(cx + gazeX / 2, cy + gazeY / 2, 3, ST77XX_BLACK);
     return;
   }
   if (strcmp(style, "happy") == 0) {  // ^ ^ crescents
@@ -620,6 +666,12 @@ void drawMouth(const char *style) {
   } else if (strcmp(style, "sleepy") == 0) {
     tft.fillCircle(MOUTH_X, MOUTH_Y, 6, c);
     tft.fillCircle(MOUTH_X, MOUTH_Y, 3, ST77XX_BLACK);
+  } else if (strcmp(style, "yawn") == 0) {  // big open yawn
+    tft.fillRoundRect(MOUTH_X - 10, MOUTH_Y - 12, 20, 26, 10, c);
+    tft.fillRoundRect(MOUTH_X - 6, MOUTH_Y - 8, 12, 18, 6, ST77XX_BLACK);
+  } else if (strcmp(style, "surprised") == 0) {
+    tft.fillCircle(MOUTH_X, MOUTH_Y, 7, c);
+    tft.fillCircle(MOUTH_X, MOUTH_Y, 4, ST77XX_BLACK);
   } else {  // normal: gentle smile
     drawCurve(MOUTH_X, MOUTH_Y, 15, 7, c);
   }
@@ -634,18 +686,51 @@ void drawFace() {
   tft.fillRect(0, 10, 160, 92, ST77XX_BLACK);
   drawEyes(blinkClosed);
   drawMouth(currentEyes());
+  if (asleep && strcmp(currentEyes(), "sleepy") == 0) {  // z Z
+    tft.setTextColor(modeColor);
+    tft.setTextSize(1);
+    tft.setCursor(138, 22);
+    tft.print("z");
+    tft.setTextSize(2);
+    tft.setCursor(144, 8 + 4);
+    tft.print("Z");
+    tft.setTextSize(1);
+  }
+}
+
+// Small heart + bar (mood) and lightning + bar (energy) in the top line.
+void drawMoodBars() {
+  int x = 92;
+  tft.fillRect(x, 0, 160 - x, 10, ST77XX_BLACK);
+  // heart
+  tft.fillCircle(x + 3, 3, 2, ST77XX_RED);
+  tft.fillCircle(x + 7, 3, 2, ST77XX_RED);
+  tft.fillTriangle(x + 1, 4, x + 9, 4, x + 5, 8, ST77XX_RED);
+  tft.drawRect(x + 12, 2, 22, 6, 0x7BEF);
+  tft.fillRect(x + 13, 3, (20 * mood) / 100, 4, ST77XX_RED);
+  // lightning
+  int bx = x + 38;
+  tft.fillTriangle(bx + 4, 0, bx + 1, 5, bx + 4, 5, ST77XX_YELLOW);
+  tft.fillTriangle(bx + 3, 4, bx + 6, 4, bx + 2, 9, ST77XX_YELLOW);
+  tft.drawRect(bx + 8, 2, 22, 6, 0x7BEF);
+  tft.fillRect(bx + 9, 3, (20 * energy) / 100, 4, ST77XX_YELLOW);
 }
 
 void drawStatusBar() {
   tft.fillRect(0, 0, 160, 10, ST77XX_BLACK);
   tft.fillRect(0, 104, 160, 24, ST77XX_BLACK);
   tft.setTextSize(1);
-  if (strcmp(mvState, "playing") == 0 && mvSkill[0]) {
+  if (bannerText[0] && (int32_t)(millis() - bannerUntil) < 0) {
+    tft.setTextColor(ST77XX_YELLOW);
+    tft.setCursor(2, 1);
+    tft.print(bannerText);
+  } else if (strcmp(mvState, "playing") == 0 && mvSkill[0] && !idlePlaying) {
     tft.setTextColor(ST77XX_GREEN);
     tft.setCursor(2, 1);
     tft.print("> ");
     tft.print(mvSkill);
   }
+  drawMoodBars();
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(2, 106);
   if (restartAt) {
@@ -665,7 +750,7 @@ void drawStatusBar() {
     tft.print(modeId);
     tft.setTextColor(ST77XX_WHITE);
     tft.print(" | ");
-    tft.print(mvState);
+    tft.print(asleep ? "asleep" : mvState);
     tft.print(clientCount > 0 ? " | app" : "");
   }
 }
@@ -715,6 +800,14 @@ void drawSetupScreen() {
     tft.setTextColor(ST77XX_CYAN);
     tft.print("or open 192.168.4.1");
   }
+}
+
+// Idle life turns the head: make the eyes look the same way for a while.
+void lookTowards(int gx, uint32_t holdMs) {
+  gazeX = constrain(gx, -6, 6);
+  gazeY = 0;
+  nextGazeAt = millis() + holdMs;
+  gazeNudged = true;
 }
 
 void displayInit() {
@@ -772,6 +865,25 @@ void displayLoop() {
   }
 
   bool eyesChanged = false;
+  static char drawnEyes[16] = "";
+  if (strcmp(drawnEyes, currentEyes()) != 0) {  // reaction started/ended, fell asleep, ...
+    strlcpy(drawnEyes, currentEyes(), sizeof(drawnEyes));
+    displayDirty = true;
+  }
+  static bool bannerShown = false;
+  bool bannerNow = bannerText[0] && (int32_t)(now - bannerUntil) < 0;
+  if (bannerNow != bannerShown) {
+    bannerShown = bannerNow;
+    displayDirty = true;
+  }
+  if (moodBarsDirty && !displayDirty) drawMoodBars();
+  moodBarsDirty = false;
+  if (gazeNudged) {
+    gazeNudged = false;
+    if (!blinkClosed && hasPupils(currentEyes())) eyesChanged = true;
+  }
+
+  if (asleep) nextBlinkAt = now + 1000;  // eyes stay closed while asleep
   if (now >= nextBlinkAt) {
     blinkClosed = !blinkClosed;
     nextBlinkAt = now + (blinkClosed ? 150 : 2500 + (esp_random() % 3000));
@@ -797,7 +909,241 @@ void displayLoop() {
 #else
 void displayInit() {}
 void displayLoop() {}
+void lookTowards(int gx, uint32_t holdMs) {}
 #endif
+
+// ---------------- Alive: idle life, reactions, mood & energy ----------------
+// With no app connected the robot glances around (head + eyes) and plays its
+// mode's idle skill now and then; with the app connected only the eyes move, so
+// it never disturbs a pose being taught. Quiet for long enough: yawn, then sleep.
+float headMin = 60, headMax = 120, headHome = 90;
+bool headRev = false, headOk = false;
+uint32_t nextGlanceAt = 0, nextIdleSkillAt = 0, yawnAt = 0, lastAliveSave = 0, lastGreet = 0;
+bool aliveUnsaved = false;
+int setJointCount = 0;
+
+void loadHeadLimits() {
+  headOk = false;
+  JsonDocument prof;
+  if (!readJsonFile("/config/mech_profile.json", prof)) {
+    // No profile yet: same as the movement board's default head (30-150), kept narrow.
+    headMin = 60, headMax = 120, headHome = 90, headRev = false, headOk = true;
+    return;
+  }
+  for (JsonObjectConst j : prof["joints"].as<JsonArrayConst>()) {
+    if (strcmp(j["name"] | "", "head") != 0) continue;
+    if (!(j["enabled"] | true)) return;
+    headMin = j["min_angle"] | 60.0f;
+    headMax = j["max_angle"] | 120.0f;
+    headHome = j["home_angle"] | 90.0f;
+    headRev = j["reverse"] | false;
+    headOk = true;
+  }
+}
+
+void loadAlive() {
+  prefs.begin("alive", false);
+  mood = prefs.getInt("mood", 70);
+  energy = prefs.getInt("energy", 80);
+  idleLife = prefs.getBool("idle", true);
+  prefs.end();
+}
+
+void saveAlive() {
+  prefs.begin("alive", false);
+  prefs.putInt("mood", mood);
+  prefs.putInt("energy", energy);
+  prefs.putBool("idle", idleLife);
+  prefs.end();
+  lastAliveSave = millis();
+  aliveUnsaved = false;
+}
+
+void setMood(int m) {
+  m = constrain(m, MOOD_FLOOR, 100);
+  if (m != mood) mood = m, aliveDirty = true;
+}
+
+void setEnergy(int e) {
+  e = constrain(e, 5, 100);
+  if (e != energy) energy = e, aliveDirty = true;
+}
+
+void react(const char *eyes, uint32_t ms) {
+  strlcpy(reactEyes, eyes, sizeof(reactEyes));
+  reactUntil = millis() + ms;
+  reactNextEyes[0] = 0;
+}
+
+void reactThen(const char *eyes, uint32_t ms, const char *next, uint32_t nextMs) {
+  react(eyes, ms);
+  strlcpy(reactNextEyes, next, sizeof(reactNextEyes));
+  reactNextMs = nextMs;
+}
+
+void banner(const char *text, uint32_t ms) {
+  strlcpy(bannerText, text, sizeof(bannerText));
+  bannerUntil = millis() + ms;
+}
+
+void sendHead(float angle, float dps) {
+  JsonDocument d;
+  d["type"] = "set_joint";
+  d["joint"] = "head";
+  d["angle"] = (int)roundf(angle);
+  d["dps"] = dps;
+  sendLink(d);
+}
+
+void returnHeadHome() {
+  if (headMovedByIdle && headOk) sendHead(headHome, IDLE_GLANCE_DPS);
+  headMovedByIdle = false;
+  lookTowards(0, 1500);
+}
+
+void wakeUp() {
+  yawnAt = 0;
+  if (!asleep) return;
+  asleep = false;
+  aliveDirty = true;
+  reactThen("surprised", 700, "happy", 1500);
+  Serial.println("Woke up");
+}
+
+// Something real happened (an app command, the button...): not idle any more.
+void noteActivity() {
+  lastActivity = millis();
+  wakeUp();
+}
+
+void playIdleSkill() {
+  if (!modeIdleSkill[0] || !skillAllowed(modeIdleSkill)) return;
+  char path[64];
+  snprintf(path, sizeof(path), "/skills/%s.json", modeIdleSkill);
+  JsonDocument skill;
+  if (!validPath(path) || !readJsonFile(path, skill)) return;
+  JsonDocument fwd;
+  fwd["type"] = "play";
+  fwd["skill"] = skill.as<JsonVariantConst>();
+  idlePlaying = true;
+  headMovedByIdle = true;
+  sendLink(fwd);
+}
+
+// The app reports what happened (training, teaching...) so the robot can react.
+const char *handleReact(JsonDocument &msg) {
+  const char *ev = msg["event"] | "";
+  if (strcmp(ev, "trained") == 0) {
+    int score = msg["score"] | 0;
+    if (msg["level_up"] | false) {
+      reactThen("surprised", 600, "happy", 3000);
+      banner("LEVEL UP!", 3500);
+      setMood(mood + 8);
+    } else if (score >= 60) {
+      react("happy", 2500);
+      setMood(mood + 4);
+    } else {
+      react("sad", 2000);
+      setMood(mood + 1);  // practising still counts
+    }
+  } else if (strcmp(ev, "taught") == 0) {
+    react("happy", 2500);
+    banner("New move!", 2500);
+    setMood(mood + 5);
+  } else if (strcmp(ev, "confused") == 0) {
+    react("surprised", 1000);
+  } else if (msg["eyes"].is<const char *>()) {
+    react(msg["eyes"] | "happy", constrain(msg["ms"] | 1500, 200, 10000));
+  } else {
+    return "unknown event";
+  }
+  displayDirty = true;
+  return nullptr;
+}
+
+// Movement board status changed (called before mvState is updated).
+void aliveOnMovementState(const char *newState, bool newButton) {
+  if (newButton && !mvButton) noteActivity();
+  bool wasPlaying = strcmp(mvState, "playing") == 0;
+  bool nowPlaying = strcmp(newState, "playing") == 0;
+  if (!wasPlaying && nowPlaying && !idlePlaying) setEnergy(energy - 2);
+  if (wasPlaying && !nowPlaying) {
+    if (idlePlaying) idlePlaying = false;
+    else if (strcmp(newState, "idle") == 0) react("happy", 1500);
+  }
+  if (strcmp(mvState, "estop") == 0 && strcmp(newState, "idle") == 0) react("surprised", 1200);
+}
+
+void aliveLoop() {
+  uint32_t now = millis();
+
+  // follow-up expression (e.g. surprised -> happy)
+  if (reactNextEyes[0] && (int32_t)(now - reactUntil) >= 0) {
+    strlcpy(reactEyes, reactNextEyes, sizeof(reactEyes));
+    reactUntil = now + reactNextMs;
+    reactNextEyes[0] = 0;
+  }
+
+  // slow changes, every 10 s
+  static uint32_t lastTick = 0;
+  static uint32_t ticks = 0;
+  if (now - lastTick >= 10000) {
+    lastTick = now;
+    ticks++;
+    bool quiet = now - lastActivity > IDLE_START_MS;
+    if (asleep) {
+      if (ticks % 2 == 0) setEnergy(energy + 1);  // +1 per 20 s asleep
+    } else if (quiet && ticks % 6 == 0) {
+      setEnergy(energy + 1);  // +1 per minute resting
+    }
+    if (!asleep && now - lastActivity > 600000 && ticks % 60 == 0) setMood(mood - 1);  // ignored: -1 per 10 min
+  }
+  if (aliveDirty) {
+    aliveDirty = false;
+    aliveUnsaved = true;
+    moodBarsDirty = true;
+    broadcastStatus();
+  }
+  if (aliveUnsaved && now - lastAliveSave > 60000) saveAlive();
+
+  bool canIdle = idleLife && movementOk() && !setupMode && !restartAt && strcmp(mvState, "idle") == 0 && !mvButton;
+  if (!canIdle || asleep) return;
+  uint32_t quietFor = now - lastActivity;
+
+  uint32_t sleepAfter = energy < 25 ? SLEEP_AFTER_TIRED_MS : SLEEP_AFTER_MS;
+  if (quietFor > sleepAfter) {
+    if (!yawnAt) {
+      yawnAt = now;
+      react("yawn", 2500);
+      returnHeadHome();
+    } else if (now - yawnAt > 2600) {
+      yawnAt = 0;
+      asleep = true;
+      aliveDirty = true;
+      Serial.println("Fell asleep");
+    }
+    return;
+  }
+  if (quietFor < IDLE_START_MS || clientCount > 0) return;  // app connected: only the eyes are alive
+
+  if (headOk && now >= nextGlanceAt) {
+    float range = min((float)IDLE_GLANCE_RANGE, min(headMax - headHome, headHome - headMin) - 3);
+    if (range > 3) {
+      bool centre = esp_random() % 3 == 0;
+      float target = centre ? headHome : headHome + (float)((int)(esp_random() % (2 * (int)range + 1)) - (int)range);
+      sendHead(target, IDLE_GLANCE_DPS);
+      headMovedByIdle = true;
+      // Head turns robot-left (bigger angle) = the face turns to the viewer's right: pupils move right.
+      int sign = headRev ? -1 : 1;
+      lookTowards((int)((target - headHome) * sign * 6 / range), 3000);
+    }
+    nextGlanceAt = now + (energy < 25 ? 8000 : 3000) + esp_random() % 5000;
+  }
+  if (now >= nextIdleSkillAt) {
+    if (nextIdleSkillAt != 0) playIdleSkill();
+    nextIdleSkillAt = now + 60000 + esp_random() % 60000;
+  }
+}
 
 // ---------------- Movement link ----------------
 void onMovementLine(const char *line, size_t len) {
@@ -814,6 +1160,7 @@ void onMovementLine(const char *line, size_t len) {
     const char *sk = m["skill"] | "";
     bool btn = m["estop_button"] | false;
     if (strcmp(st, mvState) || strcmp(sk, mvSkill) || btn != mvButton) displayDirty = true;
+    aliveOnMovementState(st, btn);
     strlcpy(mvState, st, sizeof(mvState));
     strlcpy(mvSkill, sk, sizeof(mvSkill));
     mvButton = btn;
@@ -882,6 +1229,7 @@ const char *handlePutFile(uint8_t num, int32_t appId, bool hasId, const char *pa
   if (strcmp(path, modePath) == 0) loadMode(modeId);
 
   if (strcmp(path, "/config/mech_profile.json") == 0) {
+    loadHeadLimits();
     // The movement board must accept the new limits before we report success.
     if (!movementOk()) return "saved, but movement board not answering";
     uint32_t lid = pushProfile(hasId);
@@ -907,6 +1255,17 @@ void handleAppMessage(uint8_t num, uint8_t *payload, size_t length) {
   int32_t appId = msg["id"] | 0;
   const char *error = nullptr;
   bool acked = false;  // true when the reply comes later (from the movement board)
+  bool isCommand = strcmp(type, "ping") != 0 && strcmp(type, "get_status") != 0 && strcmp(type, "hello") != 0 &&
+                   strcmp(type, "react") != 0 && strcmp(type, "list_files") != 0 && strcmp(type, "get_wifi") != 0;
+  if (isCommand) noteActivity();
+  if (strcmp(type, "set_joint") == 0 && ++setJointCount % 30 == 0) setEnergy(energy - 1);
+  if (strcmp(type, "play") == 0 || strcmp(type, "play_saved") == 0) {
+    setMood(mood + 1);
+    if (idlePlaying) {  // the app takes over from an idle skill
+      idlePlaying = false;
+      setEnergy(energy - 2);
+    }
+  }
 
   if (strcmp(type, "ping") == 0 || strcmp(type, "get_status") == 0) {
     sendStatus(num);
@@ -920,6 +1279,15 @@ void handleAppMessage(uint8_t num, uint8_t *payload, size_t length) {
     h["wifi"] = setupMode ? "" : wifiSsid;
     h["joints"] = mvJoints.as<JsonArrayConst>();
     sendJson(num, h);
+    // An app said hello: wake up, stop wandering, greet (mood bonus at most once a minute).
+    noteActivity();
+    returnHeadHome();
+    if (millis() - lastGreet > 60000 || lastGreet == 0) {
+      lastGreet = millis();
+      react("happy", 2000);
+      setMood(mood + 2);
+      displayDirty = true;
+    }
     sendStatus(num);
   } else if (strcmp(type, "estop") == 0) {
     // Never wait on an e-stop: send it at once, twice for luck.
@@ -993,6 +1361,21 @@ void handleAppMessage(uint8_t num, uint8_t *payload, size_t length) {
       displayDirty = true;
       scheduleRestart(1500);  // after the ack has gone out
     }
+  } else if (strcmp(type, "react") == 0) {
+    error = handleReact(msg);
+  } else if (strcmp(type, "set_alive") == 0) {
+    if (msg["idle_life"].is<bool>()) {
+      idleLife = msg["idle_life"].as<bool>();
+      if (!idleLife) {
+        wakeUp();
+        returnHeadHome();
+      }
+      saveAlive();
+      displayDirty = true;
+      broadcastStatus();
+    } else {
+      error = "set_alive needs idle_life: true/false";
+    }
   } else if (strcmp(type, "set_eyes") == 0) {
     strlcpy(eyesOverride, msg["eyes"] | "", sizeof(eyesOverride));
     displayDirty = true;
@@ -1050,6 +1433,10 @@ void setup() {
     if (rid) strlcpy(robotId, rid, sizeof(robotId));
   }
   if (!loadMode("friendly")) Serial.println("No /modes/friendly.json yet (sync from the app), using 60% speed");
+  loadHeadLimits();
+  loadAlive();
+  lastActivity = millis();
+  Serial.printf("Mood %d, energy %d, idle life %s\n", mood, energy, idleLife ? "on" : "off");
   mvAngles.to<JsonObject>();
   mvJoints.to<JsonArray>();
 
@@ -1067,6 +1454,7 @@ void loop() {
   wifiLoop();
   pollLink();
   checkPendingTimeouts();
+  aliveLoop();
 
   uint32_t now = millis();
   if (now - lastLinkPing >= LINK_PING_MS) {

@@ -33,6 +33,13 @@ let robotId = 'robot-001';
 let mode = { mode_id: 'friendly', limits: { max_speed_pct: 60 }, allowed_skills: null, eyes: 'happy' };
 let eyesOverride = '';
 let wifi = { ssid: 'HomeWiFi', pass: '' };
+// "Alive" state, same rules as the S3 firmware (simplified: no sleep timer)
+const alive = { mood: 70, energy: 80, asleep: false, idle_life: true, react: '', reactUntil: 0 };
+const clampMood = (m) => Math.max(30, Math.min(100, m));
+function reactFace(eyes, ms) {
+  alive.react = eyes;
+  alive.reactUntil = Date.now() + ms;
+}
 // MOVEMENT_DOWN=1 npm start  -> pretend the movement ESP32 isn't answering
 const movementDown = process.env.MOVEMENT_DOWN === '1';
 
@@ -208,7 +215,11 @@ function statusMsg() {
     angles,
     estop_button: false,
     movement_ok: !movementDown,
-    eyes: eyesOverride || mode.eyes,
+    eyes: alive.react && Date.now() < alive.reactUntil ? alive.react : eyesOverride || mode.eyes,
+    mood: alive.mood,
+    energy: alive.energy,
+    asleep: alive.asleep,
+    idle_life: alive.idle_life,
   };
 }
 const broadcastStatus = () => broadcast(statusMsg());
@@ -256,6 +267,8 @@ function handle(ws, msg) {
     }
     case 'play':
       startSkill(msg.skill, false);
+      alive.energy = Math.max(5, alive.energy - 2);
+      alive.mood = clampMood(alive.mood + 1);
       console.log(`play ${state.skill}`);
       broadcastStatus();
       return ack();
@@ -295,6 +308,38 @@ function handle(ws, msg) {
       console.log(`Wi-Fi saved: "${ssid}" (a real robot would restart now)`);
       return ack();
     }
+    case 'react': {
+      if (msg.event === 'trained') {
+        if (msg.level_up) {
+          reactFace('happy', 3000);
+          alive.mood = clampMood(alive.mood + 8);
+          console.log('LEVEL UP!');
+        } else if ((msg.score ?? 0) >= 60) {
+          reactFace('happy', 2500);
+          alive.mood = clampMood(alive.mood + 4);
+        } else {
+          reactFace('sad', 2000);
+          alive.mood = clampMood(alive.mood + 1);
+        }
+      } else if (msg.event === 'taught') {
+        reactFace('happy', 2500);
+        alive.mood = clampMood(alive.mood + 5);
+      } else if (msg.event === 'confused') {
+        reactFace('surprised', 1000);
+      } else if (typeof msg.eyes === 'string') {
+        reactFace(msg.eyes, msg.ms ?? 1500);
+      } else {
+        throw new Error('unknown event');
+      }
+      console.log(`react: ${msg.event ?? msg.eyes} -> mood ${alive.mood}`);
+      broadcastStatus();
+      return ack();
+    }
+    case 'set_alive':
+      if (typeof msg.idle_life !== 'boolean') throw new Error('set_alive needs idle_life: true/false');
+      alive.idle_life = msg.idle_life;
+      broadcastStatus();
+      return ack();
     case 'set_eyes':
       eyesOverride = String(msg.eyes ?? '');
       console.log(`display eyes: ${eyesOverride}`);

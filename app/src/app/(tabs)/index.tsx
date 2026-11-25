@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Switch, Text, View } from 'react-native';
 import { Button, Card, Chip, Field, Muted, Row, Screen, colors, styles } from '../../components/ui';
 import { EYE_STYLES } from '../../lib/defaults';
 import { parseCommand } from '../../lib/engine';
@@ -107,6 +107,39 @@ export default function RobotScreen() {
             Motors are off. Check the robot is safe{robot.status?.estop_button ? ' and release the physical STOP button' : ''}, then release.
           </Text>
           <Button label="Release E-STOP" variant="danger" onPress={() => run('Release', () => robot.request({ type: 'estop_release' }))} />
+        </Card>
+      ) : null}
+
+      {connected && robot.status?.mood !== undefined ? (
+        <Card title={robot.status.asleep ? 'Feelings · asleep 💤' : 'Feelings'}>
+          <Row>
+            <Text style={{ width: 70, color: colors.text, fontWeight: '600' }}>♥ Mood</Text>
+            <View style={{ flex: 1, height: 10, backgroundColor: '#E7EBF5', borderRadius: 5, overflow: 'hidden' }}>
+              <View style={{ width: `${robot.status.mood}%`, height: 10, backgroundColor: colors.danger }} />
+            </View>
+            <Text style={{ width: 36, textAlign: 'right', color: colors.text }}>{robot.status.mood}</Text>
+          </Row>
+          <Row>
+            <Text style={{ width: 70, color: colors.text, fontWeight: '600' }}>⚡ Energy</Text>
+            <View style={{ flex: 1, height: 10, backgroundColor: '#E7EBF5', borderRadius: 5, overflow: 'hidden' }}>
+              <View style={{ width: `${robot.status.energy ?? 0}%`, height: 10, backgroundColor: '#F59F00' }} />
+            </View>
+            <Text style={{ width: 36, textAlign: 'right', color: colors.text }}>{robot.status.energy}</Text>
+          </Row>
+          <Muted>
+            {robot.status.asleep
+              ? 'Sleeping and recharging. Any command wakes it up.'
+              : (robot.status.energy ?? 100) < 25
+                ? 'Tired: it will nap soon. Let it rest to recharge.'
+                : 'Playing, training and teaching make it happy. Moves use energy; resting and sleep bring it back.'}
+          </Muted>
+          <Row>
+            <Muted>Idle life (looks around and naps on its own)</Muted>
+            <Switch
+              value={robot.status.idle_life !== false}
+              onValueChange={(v) => run('Idle life', () => robot.request({ type: 'set_alive', idle_life: v }))}
+            />
+          </Row>
         </Card>
       ) : null}
 

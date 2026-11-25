@@ -39,7 +39,7 @@ Matches **Stage B** in `kb/docs/wiring-pins.md` (and `wiring-pins.html`).
 
 ### 3. Link the boards
 Wire the UART (power off): movement **GPIO17 (TX2) → S3 GPIO18**, movement **GPIO16 (RX2) ← S3 GPIO17**, **GND ↔ GND**. Power both by USB.
-The S3 prints `Movement board move-0.2.0 connected` / `Movement link OK`, and the display shows `friendly | idle`.
+The S3 prints `Movement board move-0.3.0 connected` / `Movement link OK`, and the display shows `friendly | idle`.
 
 ### 4. App
 App → Robot tab → robot IP, port **81** → Connect → **Sync everything to robot**. Then try the Control sliders, Display test, a skill, and the STOP button. See `app/README.md`.
@@ -61,6 +61,13 @@ The S3 remembers the Wi-Fi in its own flash. To move it to another network:
 
 ## Face on the display
 White eyes with irises and pupils that look around and blink, plus a mouth. The style comes from the mode (`display.eyes`: `normal`, `happy`, `focused`, `sad`, `sleepy`). The colour of the irises and mouth comes from `display.color` (`#RRGGBB`). Default: Friendly = cyan, Gaming = orange. Change both in the app's Setup tab, then pick the mode again so it's sent.
+
+## Alive: idle life, reactions, mood and energy (comms-0.5)
+- **Idle life:** after 10 s without commands the eyes keep looking around and blinking. With **no app connected**, the head also glances around gently (35 °/s, ±25° from home, the eyes follow), and about every 1-2 min it plays the mode's `idle_skill`. With the app connected only the eyes move, so a pose being taught is never disturbed.
+- **Sleep:** after 2 min quiet (45 s when energy is under 25) it yawns, the head goes home, and it sleeps (closed eyes, "z Z"). Any command, an app connecting, or the stop button wakes it (surprised → happy).
+- **Reactions:** focused while playing a skill, happy when it ends, surprised after a STOP release, happy/sad/"LEVEL UP!" after training, happy + "New move!" when a taught move is saved, surprised at a command it doesn't understand.
+- **Mood / energy (0-100, saved on the S3):** playing costs 2 energy and teaching 1 per 30 moves. Energy comes back +1/min resting and +3/min asleep. Mood rises with play (+1), training (+1 to +8), teaching (+5) and app visits (+2, once a minute at most), and falls 1 per 10 min when ignored, but never below 30. Shown as heart/lightning bars at the top of the screen and in the app.
+- Turn idle life off in the app (Robot tab → Feelings). Settings are at the top of `mechakin_comms.ino` (`IDLE_START_MS`, `SLEEP_AFTER_MS`, ...).
 
 ## Tuning
 - `SERVOMIN` / `SERVOMAX` (movement sketch): pulse range, same as step 1. Narrow it if servos buzz at the ends.

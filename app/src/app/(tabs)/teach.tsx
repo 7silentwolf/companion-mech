@@ -133,6 +133,7 @@ export default function TeachScreen() {
     const r = buildTaughtSkill(name, state.steps, data.profile, activeMode, data.skills);
     if (!r.skill) return say({ who: 'robot', text: r.error!, ok: false });
     saveSkill(r.skill);
+    robot.send({ type: 'react', event: 'taught' });
     const where = await uploadNew(r.skill);
     say({ who: 'robot', text: `Saved "${r.skill.name}"! Train it in the Train tab or use it in a combo.${where}`, ok: true });
     setMoveName('');
@@ -143,6 +144,7 @@ export default function TeachScreen() {
     const r = buildCombo(name, parts, data.skills, data.profile, activeMode);
     if (!r.skill) return say({ who: 'robot', text: r.error!, ok: false });
     saveSkill(r.skill);
+    robot.send({ type: 'react', event: 'taught' });
     const where = await uploadNew(r.skill);
     say({ who: 'robot', text: `Saved combo "${r.skill.name}" (${parts.join(' → ')}).${where}`, ok: true });
     setComboParts([]);
@@ -168,6 +170,7 @@ export default function TeachScreen() {
       else say({ who: 'robot', text: `Combo ready: ${cmd.parts.join(' → ')}. Give it a name below and save.`, ok: true });
       return;
     }
+    if (cmd.kind === 'unknown') robot.send({ type: 'react', event: 'confused' });
     perform(applyTeachCommand(state, cmd, data.profile, activeMode));
   };
 

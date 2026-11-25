@@ -5,7 +5,7 @@ The phone is the robot's brain and microphone. This app connects to the robot ov
 
 | Tab | What it does |
 |---|---|
-| **Robot** | Connect, pick a mode, talk to the robot (type, or dictate with the keyboard mic), quick-play skills, display (eyes) test, movement-board warning, sync files to the robot, log |
+| **Robot** | Connect, Feelings (mood, energy, asleep, idle-life switch), pick a mode, talk to the robot (type, or dictate with the keyboard mic), quick-play skills, display (eyes) test, movement-board warning, sync files to the robot, log |
 | **Teach** | Teach a move with words or buttons ("raise right hand", "a bit lower", "good", "faster", "play it", "save as jab"), fine-tune sliders, and combos ("combo jab jab cross"). No AI: fixed words, works offline |
 | **Skills** | Skill library. Editor: steps, simultaneous moves, repeat, limit check, auto-fix, play, upload, JSON import/export |
 | **Train** | Practice a skill, rate it 1-5 stars. The skill is tuned within safe limits, level/XP/stats update and get saved to the robot |

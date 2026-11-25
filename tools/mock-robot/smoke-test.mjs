@@ -96,6 +96,22 @@ ws.onopen = async () => {
     check('status shows eyes', lastStatus?.eyes === 'sleepy', `eyes=${lastStatus?.eyes}`);
     check('status shows movement link', lastStatus?.movement_ok !== false, `movement_ok=${lastStatus?.movement_ok}`);
 
+    await req({ type: 'get_status' });
+    await sleep(100);
+    const mood0 = lastStatus?.mood;
+    check('status has mood and energy', typeof mood0 === 'number' && typeof lastStatus?.energy === 'number', `mood=${mood0} energy=${lastStatus?.energy}`);
+    check('react: level up', (await req({ type: 'react', event: 'trained', score: 100, level_up: true })).ok);
+    await req({ type: 'get_status' });
+    await sleep(100);
+    check('mood went up and face is happy', lastStatus?.mood > mood0 && lastStatus?.eyes === 'happy', `mood=${lastStatus?.mood} eyes=${lastStatus?.eyes}`);
+    const badReact = await req({ type: 'react', event: 'dance_party' });
+    check('unknown react event rejected', badReact.ok === false, badReact.error);
+    check('set_alive off', (await req({ type: 'set_alive', idle_life: false })).ok);
+    await req({ type: 'get_status' });
+    await sleep(100);
+    check('idle life off in status', lastStatus?.idle_life === false);
+    await req({ type: 'set_alive', idle_life: true });
+
     const shortPw = await req({ type: 'set_wifi', ssid: 'Home', pass: '123' });
     check('set_wifi rejects short password', shortPw.ok === false, shortPw.error);
     check('set_wifi', (await req({ type: 'set_wifi', ssid: 'NewHome', pass: 'longenough' })).ok);

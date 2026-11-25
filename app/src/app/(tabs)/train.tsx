@@ -74,6 +74,8 @@ export default function TrainScreen() {
       }
     }
     const levelUp = r.progress.level > (progress?.level ?? 1);
+    // Let the robot react (happy / sad / LEVEL UP!) and update its mood.
+    robot.send({ type: 'react', event: 'trained', score, level_up: levelUp });
     Alert.alert(
       levelUp ? `Level up! Level ${r.progress.level}` : `Score ${score}`,
       `${skill.name ?? skill.skill_id} ${r.change}.${r.statChanged ? `\n${STAT_LABEL[r.statChanged]} +1` : ''}\n\n${saved}`,

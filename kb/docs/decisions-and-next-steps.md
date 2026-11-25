@@ -17,6 +17,7 @@
 - The display shows the robot's personality: eyes with pupils (gaze, blink) and a mouth. Eye style and face colour are per mode (Friendly = cyan/happy, Gaming = orange/focused).
 - Teaching makes data, not code: moves taught by the child are saved as skill files. Teach mode v1 works without AI (fixed words + buttons, offline, no child data leaves the phone). AI comes later, only to turn free sentences into the same commands.
 - Parked idea (after AI action generation): companion voice chat, push-to-talk, the creature's own voice, memory with parental consent. Don't clone the child's voice.
+- "Alive" lives on the robot (S3), so it works without the phone: idle life, sleep, reactions, mood and energy. Kid-friendly rules: mood never drops below 30, no punishment, idle head motion only when no app is connected.
 - The movement board enforces all safety limits itself and keeps its own copy of the joint limits, so it stays safe even if the S3 or Wi-Fi fails.
 
 ## Open decisions
@@ -32,7 +33,7 @@
 ## Current step (2026-11-25)
 The full loop already worked on 2026-11-23 (`trial-1-test-log.md`). Since then, new firmware: comms-0.4.0 (face, colours, QR Wi-Fi setup, Wi-Fi saved on the board) and move-0.2.1 (PCA9685 check, replies to typed commands). Next:
 0. Laptop: check the disk health and keep a backup (see `dev-setup.md`). Push after every session.
-1. Flash move-0.2.1 to the movement board (it compiles; the boards were unplugged on 2026-11-25).
+1. Flash move-0.3.0 and comms-0.5.0 (both compile; includes the PCA9685 check and Step 2 "alive").
 2. On the S3 (comms-0.4.0), save the home Wi-Fi once with the setup QR codes. The old `wifi_config.h` is gone, so it starts in setup mode.
 3. Check the new face (pupils, mouth, colours) and the mode colour switch from the app.
 4. Calibrate the servos in the app (Setup tab): horns off, find safe min/max, upload the profile.
@@ -56,3 +57,4 @@ Digital twin + validation -> JSON movement engine -> Android app -> AI action ge
 - 2026-11-25: KB brought up to date: status, current step, trial-1 progress, parts confirmed (ESP32-S3 with 8 MB PSRAM + ESP32 with CP2102), new `dev-setup.md` (tools, ports, build/flash commands, gotchas).
 - 2026-11-25: GitHub had 4 zero-filled files from the 2026-11-23 corrupted-disk session. Merged, keeping intact local copies plus the test log. The lost movement change (PCA9685 detection, replies to typed commands) was rewritten as move-0.2.1.
 - 2026-11-25: Teach mode v1 (no AI) replaces the Control tab. Teach a move with words or buttons, correct it, keep poses, make it faster or slower, save it, build combos. Joint `reverse` flag added. 10 new tests.
+- 2026-11-25: Step 2 "alive": comms-0.5.0 (idle life, yawn/sleep/wake, reactions, mood/energy with bars on screen) and move-0.3.0 (slow `dps` option for set_joint). App: Feelings card with an idle-life switch, plus training/teach reactions. Mock + smoke test updated (27 checks).

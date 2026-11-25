@@ -44,8 +44,8 @@ $CLI --config-file $CFG monitor -p /dev/ttyACM0 --config baudrate=115200
 Or open the same `.ino` files in the IDE and use the Upload button.
 
 Expected boot messages:
-- Movement: `MechaKin movement controller move-0.2.1`, `PCA9685 found at 0x40`, … `Ready`
-- Comms: `MechaKin comms controller comms-0.4.0`, then `Connected. Robot IP: …` (or `Wi-Fi setup mode`), then `Movement link OK`
+- Movement: `MechaKin movement controller move-0.3.0`, `PCA9685 found at 0x40`, … `Ready`
+- Comms: `MechaKin comms controller comms-0.5.0`, `Mood 70, energy 80, idle life on`, then `Connected. Robot IP: …` (or `Wi-Fi setup mode`), then `Movement link OK`
 
 ## Robot Wi-Fi (no re-flashing)
 The S3 keeps the Wi-Fi in flash. With none saved, or if it can't join, the display shows QR codes for hotspot **MechaKin-001** (password `mechakin123`) and the setup page `http://192.168.4.1`. Other ways: the app's Setup tab → Robot Wi-Fi, or hold BOOT for 3 s to forget it. Details in `firmware/README.md`.

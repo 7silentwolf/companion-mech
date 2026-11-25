@@ -27,6 +27,11 @@ export interface RobotStatus {
   /** Two-board robot: false when the movement ESP32 stops answering the comms board. */
   movement_ok?: boolean;
   eyes?: string;
+  /** "Alive" state from the robot (comms-0.5+). */
+  mood?: number; // 0-100
+  energy?: number; // 0-100
+  asleep?: boolean;
+  idle_life?: boolean;
 }
 
 interface Pending {
@@ -125,6 +130,10 @@ export function RobotProvider({ children }: { children: ReactNode }) {
             estop_button: msg.estop_button,
             movement_ok: msg.movement_ok,
             eyes: msg.eyes,
+            mood: msg.mood,
+            energy: msg.energy,
+            asleep: msg.asleep,
+            idle_life: msg.idle_life,
           });
           break;
         case 'ack': {
